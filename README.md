@@ -1,8 +1,8 @@
-# MetaConsensusDA
+# ConsensusMetaDA
 
 MetaConsensusDA is an R package for microbiome analysis using multiple algorithms - reaching consensus.
 
-## Installing consensusDE
+## Installing ConsensusMetaDA
 
 To obtain the original version from github, install devtools in R and use the following:
 
@@ -21,6 +21,10 @@ BiocManager::install("phyloseq")
 BiocManager::install("DESeq2")
 BiocManager::install("ALDEx2")
 BiocManager::install("edgeR")
+BiocManager::install("ADAPT")
+BiocManager::install("edgeR")
+BiocManager::install("metagenomeSeq")
+
 
 # Load the packages
 library(ggplot2)
@@ -28,19 +32,21 @@ library(phyloseq)
 library(DESeq2)
 library(ALDEx2)
 library(edgeR)
+library(ADAPT)
+library(metagenomeSeq)
 
 ```
 
 ## Examples
 
-To run consensusDE, load the library and follow the examples in the vignette.
+To run ConsensusMetaDA, load the library and follow the examples in the vignette.
 
 ```R
-library(MetaConsensusDA)
+library(ConsensusMetaDA)
 ```
 
 ## Contact
 
 For more details, contact Manoharan Kumar:
 manoharan.kumar@jcu.edu.au
-# MetaConsensusDA
+# ConsensusMetaDA
