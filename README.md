@@ -1,6 +1,6 @@
 # ConsensusMetaDA
 
-MetaConsensusDA is an R package for microbiome analysis using multiple algorithms - reaching consensus.
+MetaConsensusDA is an R package for microbiome analysis using multiple algorithms - reaching consensus. No one tool perform best DA anlayes on metaganome data. Hence it needs a consensus approach to obtain more robust differential abundant microbiome. ConsensusMetaDA helps achieve this using five popularly used tools. 
 
 ## Installing ConsensusMetaDA
 
@@ -35,6 +35,12 @@ library(edgeR)
 library(ADAPT)
 library(metagenomeSeq)
 
+
+# Install ConsensusMetaDA
+devtools::install_github("kmanoharan01/ConsensusMetaDA")
+# or
+remotes::install_github("kmanoharan01/ConsensusMetaDA")
+
 ```
 
 ## Examples
@@ -43,6 +49,13 @@ To run ConsensusMetaDA, load the library and follow the examples in the vignette
 
 ```R
 library(ConsensusMetaDA)
+
+GWMC_HOT_COLD <- build_OTU_counts(biom = biome_file, sample_table = sample_table_file)
+
+DEs <- OTUs_multi_DE(GWMC_HOT_COLD)
+
+OTU_plots(GWMC_HOT_COLD)
+
 ```
 
 ## Contact
