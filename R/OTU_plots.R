@@ -346,48 +346,4 @@ OTU_plots <- function( build_OTU_counts_output = NULL,
 
 
 
-setwd("/Users/jd116080/myprojects/Matt/MicrobiomeConsensusDE/MicroBiomeConsensusDE/OTU_multiDE_R/test_plots/")
-
-OTU_plots(emp)
-
-
-multiple_OTU_plots <- OTU_plots(filtered_physeq)
-
-t2d_OTU_plots <- OTU_plots(t2d_reads_phy)
-
-
-dirty_mice_OTU_plots <- OTU_plots(dirty_mice_phy)
-
-GWMC_HOT_COLD_OTU_plots <- OTU_plots(GWMC_HOT_COLD)
-
-GWMC_HOT_COLD_OTU_plots
-
-colnames(tax_table(GWMC_HOT_COLD)) <-
-  
-  tax_col2 <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
-
-dietswap
-
-colnames(tax_table(dietswap)) <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
-
-OTU_plots(dietswap)
-
-OTU_plots(GWMC_HOT_COLD)
-
-tet
-
-sample_data(t2d_OTU_plots)
-
-t2d_reads_phy
-
-
-phylo_object2
-
-filtered_physeq_faeces
-
-dirtyMice_OTU_plots <- OTU_plots(filtered_physeq_faeces)
-
-multiple_OTU_plots <- OTU_plots(phylo_object2)
-
-
 
