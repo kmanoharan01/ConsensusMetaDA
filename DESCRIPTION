@@ -14,6 +14,7 @@ Imports:
     phyloseq,
     DESeq2,
     edgeR,
-    ALDEx2
+    ALDEx2,
+    
 VignetteBuilder: knitr
 Suggests: knitr, rmarkdown
