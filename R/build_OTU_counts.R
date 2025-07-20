@@ -23,8 +23,6 @@
 # @import biom file, sample table and tax 
 
 
-data(ecc_saliva)
-
 build_OTU_counts <- function(biom = NULL,
                               sample_table = NULL,
                               taxa = NULL,
