@@ -23,15 +23,12 @@ BiocManager::install("metagenomeSeq")
 
 # consensusDE examples
 
-Begin by first installing and loading the ```consensusDE``` library. To illustrate functionality of ```consensusDE```, we will utilise RNA-seq data from the ```airway``` and annotation libraries as follows. Begin by installing and attaching data from these libraries as follows:
+Begin by first installing and loading the ```ConsensusMetaDA``` library. To illustrate functionality of ```ConsensusMetaDA```, 
 
 ## Load Libraries
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-# load consensusDE
-library(ConsensusMetaDA)
-
-
+# load ConsensusMetaDA
 # Load the packages
 library(ggplot2)
 library(phyloseq)
@@ -41,9 +38,24 @@ library(edgeR)
 library(ADAPT)
 library(metagenomeSeq)
 
+library(ConsensusMetaDA)
+
+```
+## Build_OTU_counts
+```{r echo=TRUE, message=FALSE}
+OTU_plots(merged_in = comparison_list,
+           name = "untrt-trt",
+           volcano = TRUE)
 ```
 
-## Volcano
+## OTUs_multi_DE
+```{r echo=TRUE, message=FALSE}
+OTU_plots(merged_in = comparison_list,
+           name = "untrt-trt",
+           volcano = TRUE)
+```
+
+## OTU_plots
 
 This plot a volcano plot, which compares the Log-fold change versus significance of change -log transformed score. As above and described in the MA plot section, to use independently of ```OTUs_multi_DE()``` and plot to only one comparison, constructing a list with one data.frame with the columns labelled "ID", "AveExpr", and "Adj_PVal" is required.
 
