@@ -1,0 +1,35 @@
+---
+title: "ConsensusMetaDA: R package for microbiome analysis using multiple algorithm"
+author: "Manoharan Kumar, Matt Field"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    code_folding: show
+---
+
+# Introduction
+This manual demonstrates R analysis techniques.
+
+BiocManager::install("phyloseq")
+BiocManager::install("DESeq2")
+BiocManager::install("ALDEx2")
+BiocManager::install("edgeR")
+BiocManager::install("ADAPT")
+BiocManager::install("edgeR")
+BiocManager::install("metagenomeSeq")
+
+
+## Load Libraries
+```{r setup}
+
+# Load the packages
+library(ggplot2)
+library(phyloseq)
+library(DESeq2)
+library(ALDEx2)
+library(edgeR)
+library(ADAPT)
+library(metagenomeSeq)
