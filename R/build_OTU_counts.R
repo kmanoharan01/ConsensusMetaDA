@@ -203,6 +203,7 @@
 
 build_OTU_counts <- function(biom = NULL,
                               sample_table = NULL,
+                              tax_table_test = NULL,
                               taxa = NULL,
                               abundance_threshold = NULL,
                               prevalence_threshold = NULL,
@@ -221,7 +222,7 @@ build_OTU_counts <- function(biom = NULL,
   # Import biom and sample table data
   biom <- import_biom(biom)
   samples <- import_qiime_sample_data(sample_table)
-  tt2_tax <- tax_table(tax_mat)
+  tt2_tax_test <- tax_table(tax_table_test)
 
   
   # Merge into a phyloseq object
@@ -230,7 +231,7 @@ build_OTU_counts <- function(biom = NULL,
   # Include taxonomy if provided
   if (include_taxonomy && !is.null(taxa)) {
     tax <- import_biom(taxa)
-    phylo <- merge_phyloseq(biom, samples, tt2_tax)
+    phylo <- merge_phyloseq(biom, samples, tt2_tax_test)
     # Define taxonomy columns
     tax_col <- c( "Kingdom","Phylum","Class","Order","Family","Genus","Species")
     colnames(tax_table(phylo)) <- tax_col
