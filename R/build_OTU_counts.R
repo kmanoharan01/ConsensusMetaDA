@@ -230,7 +230,7 @@ build_OTU_counts <- function(biom = NULL,
   
   # Include taxonomy if provided
   if (include_taxonomy && !is.null(taxa)) {
-    tax <- import_biom(taxa)
+    #tax <- import_biom(taxa)
     phylo <- merge_phyloseq(biom, samples, tt2_tax_test)
     # Define taxonomy columns
     tax_col <- c( "Kingdom","Phylum","Class","Order","Family","Genus","Species")
