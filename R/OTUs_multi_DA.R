@@ -1,14 +1,44 @@
-
-################################################################################
-#' Convert phyloseq OTU count data into DGEList for edgeR package
-#' 
-#' Further details.
-#' 
+#' Multi-Method Differential Abundance Analysis for OTU Data
+#'
+#' @title OTUs_multi_DA: Comprehensive Differential Abundance Analysis Suite
+#'
+#' @description
+#' This function performs differential abundance analysis using five different
+#' statistical methods: EdgeR, DESeq2, ALDEx2, ADAPT, and metagenomeSeq. It
+#' automatically compares all pairs of groups within the Age_Group variable
+#' and generates comprehensive results tables for each comparison. The function
+#' is designed for robust microbiome differential abundance analysis with
+#' multiple validation approaches.
+#'
+#' @param build_OTU_counts_output (Required).
+#'
+#'
+#' @return A list containing results from all differential abundance methods
+#'   and comparisons.
+#'
+#' @importFrom ggplot2 ggplot aes geom_bar
+#' @importFrom phyloseq get_variable nsamples otu_table tax_table psmelt
+#' @importFrom DESeq2 DESeqDataSet DESeq results
+#' @importFrom edgeR DGEList exactTest estimateCommonDisp estimateTagwiseDisp topTags estimateDisp estimateGLMCommonDisp estimateGLMTagwiseDisp calcNormFactors glmFit
+#' @importFrom ALDEx2 aldex
+#' @importFrom ADAPT adapt
+#' @importFrom metagenomeSeq newMRexperiment cumNorm fitFeatureModel MRfulltable
+#' @importFrom metagenomeSeq newMRexperiment cumNorm cumNormStat fitFeatureModel MRfulltable
+#' @importFrom Biobase pData
+#' @importFrom phyloseq otu_table sample_data tax_table taxa_are_rows nsamples
+#' @importFrom edgeR DGEList calcNormFactors estimateDisp exactTest topTags
+#' @importFrom ALDEx2 aldex
+#' @importFrom ADAPT adapt summary
+#' @importFrom Biobase pData
+#' @importFrom stats model.matrix
+#'
+#'
+#'
 #' @param physeq (Required).  A \code{\link{phyloseq-class}} or
-#'  an \code{\link{otu_table-class}} object. 
-#'  The latter is only appropriate if \code{group} argument is also a 
+#'  an \code{\link{otu_table-class}} object.
+#'  The latter is only appropriate if \code{group} argument is also a
 #'  vector or factor with length equal to \code{nsamples(physeq)}.
-#'  
+#'
 #' @param group (Required). A character vector or factor giving the experimental
 #'  group/condition for each sample/library. Alternatively, you may provide
 #'  the name of a sample variable. This name should be among the output of
@@ -16,20 +46,22 @@
 #'  \code{get_variable(physeq, group)} would return either a character vector or factor.
 #'  This is passed on to \code{\link[edgeR]{DGEList}},
 #'  and you may find further details or examples in its documentation.
-#'  
+#'
 #' @param method (Optional). The label of the edgeR-implemented normalization to use.
-#'  See \code{\link[edgeR]{calcNormFactors}} for supported options and details. 
-#'  The default option is \code{"RLE"}, which is a scaling factor method 
+#'  See \code{\link[edgeR]{calcNormFactors}} for supported options and details.
+#'  The default option is \code{"RLE"}, which is a scaling factor method
 #'  proposed by Anders and Huber (2010).
-#'  At time of writing, the \link[edgeR]{edgeR} package supported 
+#'  At time of writing, the \link[edgeR]{edgeR} package supported
 #'  the following options to the \code{method} argument:
-#'  
+#'
 #'  \code{c("TMM", "RLE", "upperquartile", "none")}.
 #'
 #' @param ... Additional arguments passed on to \code{\link[edgeR]{DGEList}}
-#' 
-#' @examples
-#' 
+#'
+
+OTUs_multi_DA <- function(build_OTU_counts_output,
+                          force_build = FALSE,
+                          verbose = FALSE){
 
 
 ################# R Version 4.4 #############
@@ -92,23 +124,9 @@ phyloseq_to_edgeR = function(physeq, group, method="RLE", ...){
   return(z)
 }
 
-################################################################################
+##########################################################
 
-# 
-# library(ggplot2)
-# library(DESeq2)
-# library(ALDEx2, )
-# library(dplyr)
-# library(tibble)
-# library(vegan)
-# library(edgeR)
-# ###################
-
-OTUs_multi_DE <- function(build_OTU_counts_output,
-                          force_build = FALSE,
-                          verbose = FALSE){
-  
-  ####///---- check inputs ----\\\###
+   ####///---- check inputs ----\\\###
   if(is.null(build_OTU_counts_output)) {
     stop("A build_OTU_counts_output object is not provided. Please provide filenames with full path and rerun.")
   }  
@@ -229,6 +247,23 @@ OTUs_multi_DE <- function(build_OTU_counts_output,
         
         write.table(ALDEx2_OTU_DE_results, file=paste0(treatment,"_vs_",other_treatment,"_aldex_DE_results.txt"), quote=FALSE, sep='\t', col.names = NA)
         
+        ######## ADAPT ########
+        print("Running ADAPT Analysis...")
+        
+        # Convert phyloseq object to a suitable format for ADAPT
+        #   adapt_input <- phyloseq_to_edgeR(build_OTU_subset, group = "Age_Group")
+        
+        # Run ADAPT (modify parameters as needed)
+        adapt_results <- ADAPT::adapt(build_OTU_subset, cond.var = "Age_Group")
+        
+        DAtaxa_result <- ADAPT::summary(adapt_results, select="all")
+        
+        # Store results
+        comparison_results$ADAPT <- DAtaxa_result
+        
+        # Save results to file
+        write.table(DAtaxa_result, file=paste0(treatment,"_vs_",other_treatment,"_ADAPT_DE_results.txt"), 
+                    quote=FALSE, sep='\t', col.names=NA)
         
         ######## metagenomeSeq ########
         print("Running metagenomeSeq Analysis...")
@@ -273,23 +308,6 @@ OTUs_multi_DE <- function(build_OTU_counts_output,
         
       #  metagenomeSeq_OTU_DE_results <- MRfulltable(fit_meta)
         
-        ######## ADAPT ########
-        print("Running ADAPT Analysis...")
-        
-        # Convert phyloseq object to a suitable format for ADAPT
-     #   adapt_input <- phyloseq_to_edgeR(build_OTU_subset, group = "Age_Group")
-        
-        # Run ADAPT (modify parameters as needed)
-        adapt_results <- ADAPT::adapt(build_OTU_subset, cond.var = "Age_Group")
-        
-        DAtaxa_result <- ADAPT::summary(adapt_results, select="all")
-        
-        # Store results
-        comparison_results$ADAPT <- DAtaxa_result
-        
-        # Save results to file
-        write.table(DAtaxa_result, file=paste0(treatment,"_vs_",other_treatment,"_ADAPT_DE_results.txt"), 
-                    quote=FALSE, sep='\t', col.names=NA)
         
         #############################
         
@@ -303,7 +321,7 @@ OTUs_multi_DE <- function(build_OTU_counts_output,
 
 }
 
-# Assumes `OTUs_multi_DE` function and all methods are loaded
+# Assumes `OTUs_multi_DA` function and all methods are loaded
 # This script adds the logic for extracting significant IDs and plotting
 
 run_and_plot_DE_analysis <- function(build_OTU_counts_output, pval_threshold = 0.05) {
@@ -351,5 +369,4 @@ run_and_plot_DE_analysis <- function(build_OTU_counts_output, pval_threshold = 0
     dev.off()
   }
 }
-
 
