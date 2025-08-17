@@ -19,7 +19,10 @@
 #' @param sample_table Character string. Path to a sample metadata file in QIIME
 #'   format containing sample information and grouping variables. Must include
 #'   sample identifiers that match those in the BIOM file. Default: NULL
-#' @param taxa Character string. Path to a taxonomy file or BIOM file containing
+#' @param tax_table_test Character string. Path to taxa table file containing.
+#'   Required but recommended for taxonomic analysis.
+#'   Default: NULL
+#' @param taxa Character string. Path to a taxonomy file containing
 #'   taxonomic classifications. Optional but recommended for taxonomic analysis.
 #'   Default: NULL
 #' @param abundance_threshold Numeric. Minimum total abundance across all samples
