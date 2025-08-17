@@ -226,7 +226,7 @@ build_OTU_counts <- function(biom = NULL,
 
   
   # Merge into a phyloseq object
-  phylo <- merge_phyloseq(biom, samples)
+  #phylo <- merge_phyloseq(biom, samples)
   
   # Include taxonomy if provided
   if (include_taxonomy && !is.null(taxa)) {
