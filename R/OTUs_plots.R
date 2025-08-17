@@ -44,7 +44,7 @@
 #'
 
 
-OTU_plots <- function( build_OTU_counts_output = NULL,
+OTUs_plots <- function( build_OTU_counts_output = NULL,
                        force_build = FALSE,
                        verbose = FALSE){
   
