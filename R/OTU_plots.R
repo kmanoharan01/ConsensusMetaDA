@@ -1,14 +1,47 @@
-
-
-library(phyloseq)
-library(ggplot2)
-library(DESeq2)
-library(ALDEx2)
-library(dplyr)
-library(tibble)
-library(vegan)
-
-
+#'
+#' @title OTU_plots: Multi-level Taxonomic Analysis and Visualization
+#' 
+#' @description
+#' This function performs comprehensive microbiome analysis and generates multiple
+#' visualizations including alpha diversity plots, PCoA ordination, taxonomic
+#' composition plots, bidirectional comparison plots, and rarefaction curves.
+#' It processes phyloseq objects at multiple taxonomic levels (Kingdom through Species)
+#' and generates publication-ready plots comparing different age groups.
+#'
+#' \itemize{
+#'   \item Alpha diversity plots and tables for all taxonomic levels
+#'   \item PCoA/MDS ordination plot
+#'   \item Stacked bar plots showing taxonomic composition by age group
+#'   \item Bidirectional plots comparing abundance between age groups
+#'   \item Rarefaction curves for sample depth assessment
+#'   \item Summary tables with abundance and prevalence statistics
+#' }
+#'
+#'
+#' @author Manoharan Kumar <manoharan.kumar@jcu.edu.au>
+#' 
+#' @param build_OTU_counts_output A phyloseq object containing OTU count data
+#'   for samples. Default = NULL.
+#' @param force_build Logical; if TRUE, forces rebuilding of the OTU table. Default = FALSE.
+#' @param verbose Logical; if TRUE, prints progress messages. Default = TRUE.
+#'
+#'
+#' @note
+#' This function expects:
+#' \itemize{
+#'   \item Sample metadata must contain 'Age_Group' column with groups 'SKM' and 'SKB'
+#'   \item Taxonomy table must contain standard ranks: Kingdom, Phylum, Class, Order, Family, Genus, Species
+#'   \item Working directory must be writable for output files
+#' }
+#'
+#' @seealso
+#' \code{\link{build_OTU_counts}} for creating phyloseq objects
+#' \code{\link{phyloseq}} for phyloseq object structure
+#'
+#' @keywords microbiome, OTU, phyloseq, visualization, taxonomy
+#' 
+#' @export 
+#'
 
 
 OTU_plots <- function( build_OTU_counts_output = NULL,
@@ -122,7 +155,7 @@ OTU_plots <- function( build_OTU_counts_output = NULL,
   
   
   # Build phyloseq object from BIOM file
-  build_OTU_counts_output <- build_OTU_counts(biom = biome_file, sample_table = sample_table_file)
+  #build_OTU_counts_output <- build_OTU_counts(biom = biome_file, sample_table = sample_table_file)
   
   # Extract OTU table from phyloseq object
   otu_mat <- as(otu_table(build_OTU_counts_output), "matrix")
@@ -145,7 +178,7 @@ OTU_plots <- function( build_OTU_counts_output = NULL,
   abline(0, 1)
   
   # Generate rarefaction curves
-  rarecurve(Data_t, step = 1, sample = raremax, col = "blue", cex = 0.4)
+ # rarecurve(Data_t, step = 1000000, sample = raremax, col = "blue", cex = 0.4)
   dev.off()
   
   
@@ -333,17 +366,11 @@ OTU_plots <- function( build_OTU_counts_output = NULL,
   
   OTU_plot_tables <- list(
     
-  #  scale_plot_table <- data_phylo2_class,
-  #  AlphaDiv_plot_table <- species_shannon_diversity,
-   # PCoA_table <- pcoa$vectors
+    #scale_plot_table <- data_phylo2_class,
+    #AlphaDiv_plot_table <- species_shannon_diversity,
+    #PCoA_table <- pcoa$vectors
   )
   
   
-  return(OTU_plot_tables)
+#  return(OTU_plot_tables)
 }
-
-
-
-
-
-
