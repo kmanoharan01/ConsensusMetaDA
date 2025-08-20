@@ -62,4 +62,3 @@ OTU_plots(GWMC_HOT_COLD)
 
 For more details, contact Manoharan Kumar:
 manoharan.kumar@jcu.edu.au
-# ConsensusMetaDA
