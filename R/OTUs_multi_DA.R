@@ -59,78 +59,165 @@
 #' @param ... Additional arguments passed on to \code{\link[edgeR]{DGEList}}
 #'
 
+
 OTUs_multi_DA <- function(build_OTU_counts_output,
                           force_build = FALSE,
                           verbose = FALSE){
-
-
-################# R Version 4.4 #############
-phyloseq_to_edgeR = function(physeq, group, method="RLE", ...){
-  # Check required packages
-  if(!requireNamespace("edgeR", quietly = TRUE)) {
-    stop("Package 'edgeR' is required but not installed")
-  }
-  if(!requireNamespace("phyloseq", quietly = TRUE)) {
-    stop("Package 'phyloseq' is required but not installed")
-  }
   
-  # Enforce orientation
-  if(!phyloseq::taxa_are_rows(physeq)) {
-    physeq <- phyloseq::t(physeq) 
-  }
-  
-  # Convert OTU table to matrix
-  x = as(phyloseq::otu_table(physeq), "matrix")
-  
-  # Add one to protect against overflow, log(0) issues
-  x = x + 1
-  
-  # Check `group` argument
-  if(length(group) == 1 && phyloseq::nsamples(physeq) > 1) {
-    # Assume that group was a sample variable name (must be categorical)
-    group = phyloseq::sample_data(physeq)[[group]]
-    if(is.null(group)) {
-      stop(paste("Sample variable", group, "not found in sample_data"))
-    }
-  }
-  
-  # Define gene annotations (`genes`) as tax_table
-  taxonomy = phyloseq::tax_table(physeq, errorIfNULL=FALSE)
-  if(!is.null(taxonomy)) {
-    taxonomy = data.frame(as(taxonomy, "matrix"))
-    rownames(taxonomy) = rownames(x)
-  } 
-  
-  # Now turn into a DGEList
-  y = edgeR::DGEList(
-    counts = x, 
-    group = group, 
-    genes = taxonomy, 
-    remove.zeros = TRUE, 
-    ...
-  )
-  
-  # Calculate the normalization factors
-  z = edgeR::calcNormFactors(y, method = method)
-  
-  # Check for division by zero inside `calcNormFactors`
-  if(!all(is.finite(z$samples$norm.factors))) {
-    stop("Non-finite normalization factors detected. Consider changing the 'method' argument")
-  }
-  
-  # Estimate dispersions - updated to use the recommended workflow in edgeR 4.4
-  z = edgeR::estimateDisp(z)
-  
-  return(z)
-}
-
-##########################################################
-
-   ####///---- check inputs ----\\\###
+  ####///---- check inputs ----\\\###
   if(is.null(build_OTU_counts_output)) {
     stop("A build_OTU_counts_output object is not provided. Please provide filenames with full path and rerun.")
   }  
   
+  ###############################  consolidate_DA_results ####################################
+  
+  consolidate_DA_results <- function(edgeR_res = NULL,
+                                     DESeq2_res = NULL,
+                                     ALDEx2_res = NULL,
+                                     metagenomeSeq_res = NULL,
+                                     ADAPT_res = NULL) {
+    
+    res_list <- list()
+    
+    # edgeR
+    if (!is.null(edgeR_res)) {
+      edgeR_df <- data.frame(
+        Taxa = rownames(edgeR_res),
+        logFC = edgeR_res$logFC,
+        pval = edgeR_res$PValue,
+        padj = edgeR_res$FDR
+      ) %>% rename_with(~ paste0(., "_edgeR"), -Taxa)
+      res_list <- append(res_list, list(edgeR_df))
+    }
+    
+    # DESeq2
+    if (!is.null(DESeq2_res)) {
+      
+      DESeq2_df <- data.frame(
+        Taxa = DESeq2_res$Taxa,
+        logFC = DESeq2_res$log2FoldChange,
+        pval = DESeq2_res$pvalue,
+        padj = DESeq2_res$padj
+      ) %>% rename_with(~ paste0(., "_DESeq2"), -Taxa)
+      res_list <- append(res_list, list(DESeq2_df))
+    }
+    
+    # ALDEx2
+    if (!is.null(ALDEx2_res)) {
+      ALDEx2_df <- data.frame(
+        Taxa = rownames(ALDEx2_res),
+        logFC = ALDEx2_res$effect,
+        pval = ALDEx2_res$we.ep,
+        padj = ALDEx2_res$we.eBH
+      ) %>% rename_with(~ paste0(., "_ALDEx2"), -Taxa)
+      res_list <- append(res_list, list(ALDEx2_df))
+    }
+    
+    # metagenomeSeq
+    if (!is.null(metagenomeSeq_res)) {
+      meta_df <- data.frame(
+        Taxa = rownames(metagenomeSeq_res),
+        logFC = metagenomeSeq_res$logFC,
+        pval = metagenomeSeq_res$pvalues,
+        padj = metagenomeSeq_res$adjPvalues
+      ) %>% rename_with(~ paste0(., "_metaSeq"), -Taxa)
+      res_list <- append(res_list, list(meta_df))
+    }
+    
+    # ADAPT
+    if (!is.null(ADAPT_res)) {
+      adapt_df <- data.frame(
+        Taxa = ADAPT_res$Taxa,
+        logFC = ADAPT_res$log10foldchange,
+        pval = ADAPT_res$pval,
+        padj = ADAPT_res$adjusted_pval
+      ) %>% rename_with(~ paste0(., "_ADAPT"), -Taxa)
+      res_list <- append(res_list, list(adapt_df))
+    }
+    
+    # Merge all
+    # merged_res <- reduce(res_list, full_join, by = "Taxa")
+    # # Extract each data frame from the list
+    # edgeR_df2 <- res_list[[1]]
+    # DESeq2_df2 <- res_list[[2]] 
+    # ALDEx2_df2 <- res_list[[3]]
+    # metaSeq_df2 <- res_list[[4]]
+    # ADAPT_df <- res_list[[5]]
+    
+    print(ADAPT_df)
+    
+    # Now properly merge them by Taxa
+    merged_res <- edgeR_df %>%
+      full_join(DESeq2_df, by = "Taxa") %>%
+      full_join(ALDEx2_df, by = "Taxa") %>%
+      full_join(meta_df, by = "Taxa") %>%
+      full_join(adapt_df, by = "Taxa")
+    
+    
+    return(merged_res)
+    
+  }
+  
+  
+  ################# R Version 4.4 #############
+  phyloseq_to_edgeR = function(physeq, group, method="RLE", ...){
+    # Check required packages
+    if(!requireNamespace("edgeR", quietly = TRUE)) {
+      stop("Package 'edgeR' is required but not installed")
+    }
+    if(!requireNamespace("phyloseq", quietly = TRUE)) {
+      stop("Package 'phyloseq' is required but not installed")
+    }
+    
+    # Enforce orientation
+    if(!phyloseq::taxa_are_rows(physeq)) {
+      physeq <- phyloseq::t(physeq) 
+    }
+    
+    # Convert OTU table to matrix
+    x = as(phyloseq::otu_table(physeq), "matrix")
+    
+    # Add one to protect against overflow, log(0) issues
+    x = x + 1
+    
+    # Check `group` argument
+    if(length(group) == 1 && phyloseq::nsamples(physeq) > 1) {
+      # Assume that group was a sample variable name (must be categorical)
+      group = phyloseq::sample_data(physeq)[[group]]
+      if(is.null(group)) {
+        stop(paste("Sample variable", group, "not found in sample_data"))
+      }
+    }
+    
+    # Define gene annotations (`genes`) as tax_table
+    taxonomy = phyloseq::tax_table(physeq, errorIfNULL=FALSE)
+    if(!is.null(taxonomy)) {
+      taxonomy = data.frame(as(taxonomy, "matrix"))
+      rownames(taxonomy) = rownames(x)
+    } 
+    
+    # Now turn into a DGEList
+    y = edgeR::DGEList(
+      counts = x, 
+      group = group, 
+      genes = taxonomy, 
+      remove.zeros = TRUE, 
+      ...
+    )
+    
+    # Calculate the normalization factors
+    z = edgeR::calcNormFactors(y, method = method)
+    
+    # Check for division by zero inside `calcNormFactors`
+    if(!all(is.finite(z$samples$norm.factors))) {
+      stop("Non-finite normalization factors detected. Consider changing the 'method' argument")
+    }
+    
+    # Estimate dispersions - updated to use the recommended workflow in edgeR 4.4
+    z = edgeR::estimateDisp(z)
+    
+    return(z)
+  }
   
   treat_list <- unique(sample_data(build_OTU_counts_output)$Age_Group)
   
@@ -206,6 +293,8 @@ phyloseq_to_edgeR = function(physeq, group, method="RLE", ...){
         phylo_reads_collapsed_deseq <- DESeq(phylo_reads_collapsed_deseq, sfType = "poscounts")
         
         DESeq2_OTU_DE_results = results(phylo_reads_collapsed_deseq , contrast=c("Age_Group", treatment, other_treatment), tidy=T, format="DataFrame")
+        
+        colnames(DESeq2_OTU_DE_results)[colnames(DESeq2_OTU_DE_results) == "row"] <- "Taxa"
         
         comparison_results$DESeq2 <- DESeq2_OTU_DE_results
         
@@ -308,6 +397,73 @@ phyloseq_to_edgeR = function(physeq, group, method="RLE", ...){
         
       #  metagenomeSeq_OTU_DE_results <- MRfulltable(fit_meta)
         
+        ##################### DA consolidation ###############
+        
+        
+        OTUs_multi_DA_consolidated <-  consolidate_DA_results( edgeR_res = EdgeR_OTU_DE_results,
+                                                               DESeq2_res = DESeq2_OTU_DE_results,
+                                                               ALDEx2_res = ALDEx2_OTU_DE_results,
+                                                               metagenomeSeq_res = metagenomeSeq_OTU_DE_results,
+                                                               ADAPT_res = DAtaxa_result
+        )
+        
+        print(OTUs_multi_DA_consolidated)
+        
+        #OTUs_multi_DA_consolidated
+        write.table(OTUs_multi_DA_consolidated, file=paste0(treatment,"_vs_",other_treatment,"_ALLDE_results.txt"), quote=F, sep="\t", row.names = FALSE, col.names = TRUE)
+        
+        ############################ Venn Diagram Plots ##################
+        
+        pval_threshold = 0.05
+        
+        significant_results_edgeR <- subset(OTUs_multi_DA_consolidated, padj_edgeR < pval_threshold)
+        significant_results_DESeq2 <- subset(OTUs_multi_DA_consolidated, padj_DESeq2 < pval_threshold)
+        significant_results_ALDEx2 <- subset(OTUs_multi_DA_consolidated, padj_ALDEx2 < pval_threshold)
+        significant_results_ADAPT <- subset(OTUs_multi_DA_consolidated, padj_metaSeq < pval_threshold)
+        significant_results_metagenomeSeq <- subset(OTUs_multi_DA_consolidated, padj_ADAPT < pval_threshold)
+        
+        print(length(significant_results_edgeR$Taxa))
+        print(length(significant_results_DESeq2$Taxa))
+        print(length(significant_results_ALDEx2$Taxa)) 
+        print(length(significant_results_ADAPT$Taxa)) 
+        print(length(significant_results_metagenomeSeq$Taxa)) 
+        
+        edgeR_ids <- significant_results_edgeR$Taxa
+        DESeq2_ids <- significant_results_DESeq2$Taxa
+        ALDEx2_ids <- significant_results_ALDEx2$Taxa
+        ADAPT_ids <- significant_results_ADAPT$Taxa
+        metagenomeSeq_ids <- significant_results_metagenomeSeq$Taxa
+        
+        list_input <- list(edgeR = edgeR_ids, DESeq2 = DESeq2_ids, ALDEx2 = ALDEx2_ids, ADAPT = ADAPT_ids, metagenomeSeq = metagenomeSeq_ids)
+        
+        print(list_input)
+        #treatments <- strsplit(contrast_pair, "_vs_")[[1]]
+        #treatment <- treatments[1]
+        #other_treatment <- treatments[2]
+        
+        venn1_plot <- venn.diagram(
+          x = list_input,
+          category.names = names(list_input),
+          filename = NULL,
+          output = TRUE,
+          fill = c("red", "blue", "green", "yellow", "purple"),
+          alpha = 0.1,
+          cex = 1.5,
+          fontfamily = "serif",
+          fontface = "bold",
+          cat.cex = 1.5,
+          cat.fontface = "bold",
+          margin = 0.2
+        )
+        ggsave(filename = paste0(treatment, "_vs_", other_treatment, "_ProportionalVennDiagram.pdf"), plot = venn1_plot, device = "pdf", height = 10, width = 8)
+        
+        ############################ UpSetR Plots ##################
+        
+        upset_plot <- UpSetR::upset(UpSetR::fromList(list_input),  mainbar.y.label = "Adj. Pvalue DE Genes", main.bar.color = "brown", sets.x.label = "DE Gene Counts", sets.bar.color = "red")
+        pdf(file=paste0(treatment,"_vs_",other_treatment,"_UpSet_plot.pdf"))
+        print(upset_plot)
+        dev.off()
+        
         
         #############################
         
@@ -317,56 +473,10 @@ phyloseq_to_edgeR = function(physeq, group, method="RLE", ...){
     }
   }
   
+#  run_and_plot_DE_analysis(build_OTU_counts_output)
+  
   return(all_comparisons_results)
 
 }
 
-# Assumes `OTUs_multi_DA` function and all methods are loaded
-# This script adds the logic for extracting significant IDs and plotting
-
-run_and_plot_DE_analysis <- function(build_OTU_counts_output, pval_threshold = 0.05) {
-  de_results <- OTUs_multi_DE(build_OTU_counts_output)
-  
-  for (contrast_pair in names(de_results)) {
-    res <- de_results[[contrast_pair]]
-    
-    # Extract significant IDs (adjusted p-value < threshold)
-    significant_results_edgeR <- subset(res$EdgeR, FDR < pval_threshold)
-    significant_results_DESeq2 <- subset(res$DESeq2, padj < pval_threshold)
-    significant_results_ALDEx2 <- subset(res$ALDEx2, wi.eBH < pval_threshold)
-    significant_results_ADAPT <- subset(res$ADAPT, padj < pval_threshold)
-    significant_results_metagenomeSeq <- subset(res$metagenomeSeq, adjPvalues < pval_threshold)
-    
-    print(length(significant_results_edgeR$ID))
-    print(length(significant_results_DESeq2$ID))
-    print(length(significant_results_ALDEx2$ID)) 
-    print(length(significant_results_ADAPT$ID)) 
-    print(length(significant_results_metagenomeSeq$ID)) 
-    
-    edgeR_ids <- significant_results_edgeR$ID
-    DESeq2_ids <- significant_results_DESeq2$ID
-    ALDEx2_ids <- significant_results_ALDEx2$ID
-    ADAPT_ids <- significant_results_ADAPT$ID
-    metagenomeSeq_ids <- significant_results_metagenomeSeq$ID
-    
-    list_input <- list(edgeR = edgeR_ids, DESeq2 = DESeq2_ids, ALDEx2 = ALDEx2_ids, ADAPT = ADAPT_ids, metagenomeSeq = metagenomeSeq_ids)
-    
-    venn1 <- euler::euler(list_input)
-    treatments <- strsplit(contrast_pair, "_vs_")[[1]]
-    treatment <- treatments[1]
-    other_treatment <- treatments[2]
-    
-    png(paste0(treatment, "_vs_", other_treatment, "_ProportionalVennDiagram.png"))
-    plot(venn1, fills = c("orange", "green", "purple", "pink", "lightblue"), col = "transparent", labels = TRUE, quantities = TRUE)
-    dev.off()
-    
-    venn1_plot <- plot(venn1, fills = c("orange", "green", "purple", "pink", "lightblue"), col = "transparent", labels = TRUE, quantities = TRUE)
-    ggsave(filename = paste0(treatment, "_vs_", other_treatment, "_ProportionalVennDiagram.pdf"), plot = venn1_plot, device = "pdf")
-    
-    upset_plot <- UpSetR::upset(UpSetR::fromList(list_input),  mainbar.y.label = "Adj. Pvalue DE Genes", main.bar.color = "brown", sets.x.label = "DE Gene Counts", sets.bar.color = "red")
-    pdf(file=paste0(treatment,"_vs_",other_treatment,"_UpSet_plot.pdf"))
-    print(upset_plot)
-    dev.off()
-  }
-}
 
