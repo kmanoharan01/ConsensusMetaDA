@@ -44,333 +44,423 @@
 #'
 
 
-OTUs_plots <- function( build_OTU_counts_output = NULL,
-                       force_build = FALSE,
-                       verbose = FALSE){
+OTUs_multi_DA <- function(build_OTU_counts_output,
+                          force_build = FALSE,
+                          verbose = FALSE){
   
   ####///---- check inputs ----\\\###
   if(is.null(build_OTU_counts_output)) {
     stop("A build_OTU_counts_output object is not provided. Please provide filenames with full path and rerun.")
   }  
   
+  ###############################  consolidate_DA_results ####################################
   
-  ###### color function ##########
-  
-  # Original set of named colors
-  color_palette <- c(
-    "royalblue4", "deepskyblue", "blue", "cyan2", "darkorchid", "gold1", "forestgreen", "firebrick", "mediumspringgreen",
-    "darkorange1", "saddlebrown", "deeppink", "slategray2", "seagreen", "bisque"
-  )
-  
-  # Function to generate random hexadecimal color codes
-  generate_random_colors <- function(n) {
-    replicate(n, paste0("#", paste(sample(c(0:9, letters[1:6]), 6, replace = TRUE), collapse = "")))
-  }
-  
-  # Generate additional colors to make up a total of 200 unique colors
-  additional_colors <- generate_random_colors(200 - length(color_palette))
-  
-  # Combine both sets
-  all_colors <- c(color_palette, additional_colors)
-  
-  # Ensure we have exactly 200 colors
-  if (length(all_colors) < 200) {
-    stop("Not enough colors defined.")
-  }
-  
-  # Use the first 200 colors for your plot
-  colors_to_use <- all_colors[1:200]
-  
-  ##################### bidirectional plot ########
-  
-  bidirectional_plot <- function(physeq2, tax_level) {
+  consolidate_DA_results <- function(edgeR_res = NULL,
+                                     DESeq2_res = NULL,
+                                     ALDEx2_res = NULL,
+                                     metagenomeSeq_res = NULL,
+                                     ADAPT_res = NULL) {
     
-    cat("Processing:", tax_level, "\n")
+    res_list <- list()
     
-    # Define taxonomic levels
-    taxonomic_levels <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
-    
-    # Validate taxonomic level
-    if (!(tax_level %in% taxonomic_levels)) {
-      stop("Invalid taxonomic level! Choose from: ", paste(taxonomic_levels, collapse = ", "))
+    # edgeR
+    if (!is.null(edgeR_res)) {
+      edgeR_df <- data.frame(
+        Taxa = rownames(edgeR_res),
+        logFC = edgeR_res$logFC,
+        pval = edgeR_res$PValue,
+        padj = edgeR_res$FDR
+      ) %>% rename_with(~ paste0(., "_edgeR"), -Taxa)
+      res_list <- append(res_list, list(edgeR_df))
     }
     
-    # Agglomerate taxa at specified level
-    physeq_taxa <- tax_glom(physeq2, taxrank = tax_level)
+    # DESeq2
+    if (!is.null(DESeq2_res)) {
+      
+      DESeq2_df <- data.frame(
+        Taxa = DESeq2_res$Taxa,
+        logFC = DESeq2_res$log2FoldChange,
+        pval = DESeq2_res$pvalue,
+        padj = DESeq2_res$padj
+      ) %>% rename_with(~ paste0(., "_DESeq2"), -Taxa)
+      res_list <- append(res_list, list(DESeq2_df))
+    }
     
-    # Normalize abundance (relative abundance)
-    physeq_taxa_norm <- transform_sample_counts(physeq_taxa, function(x) x / sum(x))
+    # ALDEx2
+    if (!is.null(ALDEx2_res)) {
+      ALDEx2_df <- data.frame(
+        Taxa = rownames(ALDEx2_res),
+        logFC = ALDEx2_res$effect,
+        pval = ALDEx2_res$we.ep,
+        padj = ALDEx2_res$we.eBH
+      ) %>% rename_with(~ paste0(., "_ALDEx2"), -Taxa)
+      res_list <- append(res_list, list(ALDEx2_df))
+    }
     
-    # Convert to data frame
-    tax_data <- psmelt(physeq_taxa_norm)
-    tax_data[, tax_level] <- as.character(tax_data[, tax_level])
+    # metagenomeSeq
+    if (!is.null(metagenomeSeq_res)) {
+      meta_df <- data.frame(
+        Taxa = rownames(metagenomeSeq_res),
+        logFC = metagenomeSeq_res$logFC,
+        pval = metagenomeSeq_res$pvalues,
+        padj = metagenomeSeq_res$adjPvalues
+      ) %>% rename_with(~ paste0(., "_metaSeq"), -Taxa)
+      res_list <- append(res_list, list(meta_df))
+    }
     
-    # Replace low-abundance taxa
-    tax_data[tax_data$Abundance < 0.01, tax_level] <- "<1%_Abundance"
+    # ADAPT
+    if (!is.null(ADAPT_res)) {
+      adapt_df <- data.frame(
+        Taxa = ADAPT_res$Taxa,
+        logFC = ADAPT_res$log10foldchange,
+        pval = ADAPT_res$pval,
+        padj = ADAPT_res$adjusted_pval
+      ) %>% rename_with(~ paste0(., "_ADAPT"), -Taxa)
+      res_list <- append(res_list, list(adapt_df))
+    }
     
-    # Write filtered data table
-    write.table(tax_data, file = paste0("filtered_physeq_", tax_level, "_data.txt"), 
-                col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+    # Merge all
+    # merged_res <- reduce(res_list, full_join, by = "Taxa")
+    # # Extract each data frame from the list
+    # edgeR_df2 <- res_list[[1]]
+    # DESeq2_df2 <- res_list[[2]] 
+    # ALDEx2_df2 <- res_list[[3]]
+    # metaSeq_df2 <- res_list[[4]]
+    # ADAPT_df <- res_list[[5]]
     
-    # Summarize abundance & prevalence
-    tax_summary <- tax_data %>%
-      group_by(Age_Group, !!sym(tax_level)) %>%
-      summarize(
-        Mean_Abundance = mean(Abundance * 100, na.rm = TRUE),
-        SE_Abundance = sd(Abundance * 100, na.rm = TRUE) / sqrt(n()),
-        Prevalence = sum(Abundance > 0)
-      ) %>%
-      ungroup()
+    print(ADAPT_df)
     
-    write.table(tax_summary, file = paste0(tax_level, "_summary_table.txt"), 
-                col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+    # Now properly merge them by Taxa
+    merged_res <- edgeR_df %>%
+      full_join(DESeq2_df, by = "Taxa") %>%
+      full_join(ALDEx2_df, by = "Taxa") %>%
+      full_join(meta_df, by = "Taxa") %>%
+      full_join(adapt_df, by = "Taxa")
     
-    # Generate bidirectional plot
-    adults_negative_summary <- tax_summary %>% filter(Age_Group == "SKM")
-    adults_positive_summary <- tax_summary %>% filter(Age_Group == "SKB")
     
-    plot <- ggplot() +
-      geom_bar(data = adults_negative_summary, aes(x = reorder(!!sym(tax_level), -Mean_Abundance), 
-                                                   y = -Mean_Abundance, fill = "SKM"), 
-               stat = "identity", alpha = 0.7, width = 0.5) +
-      geom_bar(data = adults_positive_summary, aes(x = reorder(!!sym(tax_level), -Mean_Abundance), 
-                                                   y = Mean_Abundance, fill = "SKB"), 
-               stat = "identity", alpha = 0.7, width = 0.5) +
-      coord_flip() +
-      labs(title = paste("Bidirectional Plot of", tax_level, "Prevalence and Abundance"),
-           x = tax_level,
-           y = "Mean Abundance / Prevalence") +
-      scale_y_continuous(labels = abs, breaks = scales::pretty_breaks(n = 10)) +
-      theme_minimal()
-    
-    # Save plot
-    ggsave(paste0(tax_level, "_bidirectional_plot.pdf"), plot = plot, width = 15, height = 10)
-    
-    cat("Completed:", tax_level, "\n")
-    
-  }
-  
-  
-  ####### Rarefaction Cure #######
-  
-  
-  # Build phyloseq object from BIOM file
-  #build_OTU_counts_output <- build_OTU_counts(biom = biome_file, sample_table = sample_table_file)
-  
-  # Extract OTU table from phyloseq object
-  otu_mat <- as(otu_table(build_OTU_counts_output), "matrix")
-  
-  # Transpose OTU table for rarefaction
-  Data_t <- t(otu_mat)
-  
-  # Compute species count per sample
-  S <- specnumber(Data_t)
-  
-  # Determine minimum read count per sample (for rarefaction)
-  raremax <- min(rowSums(Data_t))
-  
-  # Perform rarefaction
-  Srare <- rarefy(Data_t, raremax)
-  
-  # Plot observed vs. rarefied species
-  pdf("Rarefaction_curve.pdf")
-  plot(S, Srare, xlab = "Observed No. of Species", ylab = "Rarefied No. of Species")
-  abline(0, 1)
-  
-  # Generate rarefaction curves
- # rarecurve(Data_t, step = 1000000, sample = raremax, col = "blue", cex = 0.4)
-  dev.off()
-  
-  
-  ####### PCoA / MDS #########
-  
-  
-  pcoa <- ordinate(build_OTU_counts_output,"PCoA")
-  
-  pcoa_plot <- plot_ordination(build_OTU_counts_output,ordinate(build_OTU_counts_output, "PCoA"),color="Age_Group", label = "SampleID") + theme_bw() 
-  
-  pcoa_plot2 <- pcoa_plot + theme(panel.grid = element_blank(), panel.border = element_blank(),
-                                  axis.line = element_line(color = "black")) + 
-    guides(colour=guide_legend(override.aes=list(size=5)))  + 
-    scale_color_manual(values = c("royalblue4", "deepskyblue", "blue","cyan2", "darkorchid","gold1", "forestgreen", "firebrick", "mediumspringgreen", "darkorange1", "deeppink","grey","slategray2", "dodgerblue", "orange2", "maroon","navy"))
-  
-  ggsave("Both_groups_mds_plot.pdf", plot = pcoa_plot2, width = 8, height = 6)
-  
-  
-   ###### Alpha Diversity : taxa levels ##########
-  
-  
-  # Loop through each taxonomic level
-  for (tax_level in taxonomic_levels) {
-    # Glom the phyloseq object at the current taxonomic level
-    tax_glom_physeq <- tax_glom(build_OTU_counts_output, taxrank = tax_level)
-    
-    # Estimate Shannon diversity at the current taxonomic level
-    shannon_diversity <- estimate_richness(tax_glom_physeq, measures = "Shannon")
-    
-    write.table(shannon_diversity, file = paste0("Age_Group_alpha_Diversity_",tax_level,".txt"), col.names = TRUE,  row.names = T, sep = "\t", quote = FALSE)
+    return(merged_res)
     
   }
   
   
-  # Loop through each taxonomic level and plot richness
-  for (tax_level in taxonomic_levels) {
-    # Glom the phyloseq object at the current taxonomic level
-    tax_glom_physeq <- tax_glom(build_OTU_counts_output, taxrank = tax_level)
+  ################# R Version 4.4 #############
+  phyloseq_to_edgeR = function(physeq, group, method="RLE", ...){
+    # Check required packages
+    if(!requireNamespace("edgeR", quietly = TRUE)) {
+      stop("Package 'edgeR' is required but not installed")
+    }
+    if(!requireNamespace("phyloseq", quietly = TRUE)) {
+      stop("Package 'phyloseq' is required but not installed")
+    }
     
-    # Create the plot for Shannon and Fisher diversity indices
-    richness_plot <- plot_richness(tax_glom_physeq, measures = c("Shannon"), x = "Age_Group", color = "Age_Group") +
-      scale_color_manual(values = c("dodgerblue", "orange2", "maroon","navy")) + 
-      theme_minimal() + 
-      theme(panel.grid = element_blank(), panel.border = element_blank(), axis.line = element_line(color = "black")) +
-      ggtitle(paste("Richness at", tax_level, "level")) +
-      theme(  axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+    # Enforce orientation
+    if(!phyloseq::taxa_are_rows(physeq)) {
+      physeq <- phyloseq::t(physeq) 
+    }
     
-    # Print the plot
-    print(richness_plot)
+    # Convert OTU table to matrix
+    x = as(phyloseq::otu_table(physeq), "matrix")
     
-    ggsave(paste0("Age_Group_alpha_Diversity_plot_shannon_",tax_level,".pdf"), plot = richness_plot, width = 8, height = 6)
+    # Add one to protect against overflow, log(0) issues
+    x = x + 1
     
+    # Check `group` argument
+    if(length(group) == 1 && phyloseq::nsamples(physeq) > 1) {
+      # Assume that group was a sample variable name (must be categorical)
+      group = phyloseq::sample_data(physeq)[[group]]
+      if(is.null(group)) {
+        stop(paste("Sample variable", group, "not found in sample_data"))
+      }
+    }
+    
+    # Define gene annotations (`genes`) as tax_table
+    taxonomy = phyloseq::tax_table(physeq, errorIfNULL=FALSE)
+    if(!is.null(taxonomy)) {
+      taxonomy = data.frame(as(taxonomy, "matrix"))
+      rownames(taxonomy) = rownames(x)
+    } 
+    
+    # Now turn into a DGEList
+    y = edgeR::DGEList(
+      counts = x, 
+      group = group, 
+      genes = taxonomy, 
+      remove.zeros = TRUE, 
+      ...
+    )
+    
+    # Calculate the normalization factors
+    z = edgeR::calcNormFactors(y, method = method)
+    
+    # Check for division by zero inside `calcNormFactors`
+    if(!all(is.finite(z$samples$norm.factors))) {
+      stop("Non-finite normalization factors detected. Consider changing the 'method' argument")
+    }
+    
+    # Estimate dispersions - updated to use the recommended workflow in edgeR 4.4
+    z = edgeR::estimateDisp(z)
+    
+    return(z)
   }
   
+  treat_list <- unique(sample_data(build_OTU_counts_output)$Age_Group)
+  
+  # treat_list <- unique(sample_data(build_OTU_counts_output)$Age_Group)
+  # Initialize a list to store the results of all comparisons
+  all_comparisons_results <- list()
+  
+  # Prepare contrast list
+  contrast_list <- list()
+  DESeq2_OTU_DE_results <- list()
+  for (treatment in treat_list) {
+    for (other_treatment in treat_list) {
+      if (treatment != other_treatment) {
+        
+        contrast_list <- c(contrast_list, list(c("Age_Group", treatment, other_treatment)))
+        
+        contrast_pair <- paste0(treatment, "_vs_", other_treatment)
+        cat("Running comparison:", contrast_pair, "\n")
+        
+        # Initialize a list to store the results of each method for this comparison
+        comparison_results <- list()
+        
+        ######## EdgeR ###########
+        
+        print(treatment)
+        print(other_treatment)
+        
+        
+        # Subset the samples based on the pair of treatments
+        filtered_sample_data <- filtered_sample_data <- sample_data(build_OTU_counts_output)[
+          sample_data(build_OTU_counts_output)$Age_Group %in% c(treatment, other_treatment), ]
+        
+        # Filter OTU table and taxonomy based on filtered sample data
+        filtered_OTU_table <- otu_table(build_OTU_counts_output)[, rownames(filtered_sample_data)]
+        #  filtered_tax_table <- tax_table(build_OTU_counts_output)
+        
+        # Create a new phyloseq object with the filtered data
+        # build_OTU_subset <- phyloseq(filtered_OTU_table, filtered_tax_table, filtered_sample_data)
+        
+        build_OTU_subset <- phyloseq(filtered_OTU_table,  filtered_sample_data)
+        
+        # Convert the subsetted phyloseq object to an edgeR-compatible object
+        test_phylo_reads_edgeR <- phyloseq_to_edgeR(build_OTU_subset, group = "Age_Group")
+        
+        # Perform differential abundance analysis
+        et <- edgeR::exactTest(test_phylo_reads_edgeR) 
+        
+        # Extract top differentially abundant features
+        tt <- edgeR::topTags(et, n = nrow(test_phylo_reads_edgeR$table), adjust.method = "BH", sort.by = "PValue")
+        
+        #comparison
+        print(tt[1,1])
+        print("EdgeR: ")
+        print( tt$comparison)
+        
+        # Extract results
+        EdgeR_OTU_DE_results <- tt$table
+        
+        comparison_results$EdgeR <- EdgeR_OTU_DE_results         
+        
+        write.table(EdgeR_OTU_DE_results, file=paste0(treatment,"_vs_",other_treatment,"_edgeR_DE_results.txt"), quote=F, sep="\t", col.names = TRUE)
+        
+        
+        ######## DESeq2 ########
+        print(treatment)
+        print(other_treatment)
+        
+        
+        phylo_reads_collapsed_deseq <- phyloseq_to_deseq2(build_OTU_counts_output, ~Age_Group)
+        
 
+        #         phylo_reads_collapsed_deseq <- DESeq(phylo_reads_collapsed_deseq, test="Wald",fitType="parametric")
+        phylo_reads_collapsed_deseq <- DESeq(phylo_reads_collapsed_deseq, sfType = "poscounts")
+        
+        DESeq2_OTU_DE_results = results(phylo_reads_collapsed_deseq , contrast=c("Age_Group", treatment, other_treatment), tidy=T, format="DataFrame")
+        
+        colnames(DESeq2_OTU_DE_results)[colnames(DESeq2_OTU_DE_results) == "row"] <- "Taxa"
+        
+        comparison_results$DESeq2 <- DESeq2_OTU_DE_results
+        
+        write.table(DESeq2_OTU_DE_results, file=paste0(treatment,"_vs_",other_treatment,"_DESeq_DE_results.txt"), quote=F, sep="\t", col.names = TRUE)
+        
+        ############## ALDEx2 #####
+        
+        print(treatment)
+        print(other_treatment)
+        
+        otu_table <- as.matrix(otu_table(build_OTU_counts_output))
+        
+        group_info <- sample_data(build_OTU_counts_output)$Age_Group
+        
+        # Filter OTU table and group info for the specified conditions
+        condition_indices <- which(group_info %in% c(treatment, other_treatment))
+        
+        count_treatment <- sum(sample_data(build_OTU_counts_output)$Age_Group == treatment)
+        
+        count_other_treatment <- sum(sample_data(build_OTU_counts_output)$Age_Group == other_treatment)
+        
+        filtered_otu <- otu_table[, condition_indices]
+        
+        #print(filtered_otu)
+        
+        filtered_groups <- group_info[condition_indices]
+        
+        #     conds <-  c(rep(treatment, count_treatment), rep(other_treatment, count_other_treatment))
+        
+        print(group_info)
+        
+        print(filtered_groups) 
+        
+        ALDEx2_OTU_DE_results <- aldex(reads = filtered_otu,  conditions = filtered_groups, mc.samples = 128, denom = "all", verbose = TRUE, useMC = TRUE, cores = 28, test="t", effect=TRUE, paired.test=FALSE)
+        
+        comparison_results$ALDEx2 <- ALDEx2_OTU_DE_results
+        
+        #print(ALDEx2_OTU_DE_results$wi.eBH < 0.05)
+        
+        write.table(ALDEx2_OTU_DE_results, file=paste0(treatment,"_vs_",other_treatment,"_aldex_DE_results.txt"), quote=FALSE, sep='\t', col.names = NA)
+        
+        ######## ADAPT ########
+        print("Running ADAPT Analysis...")
+        
+        # Convert phyloseq object to a suitable format for ADAPT
+        #   adapt_input <- phyloseq_to_edgeR(build_OTU_subset, group = "Age_Group")
+        
+        # Run ADAPT (modify parameters as needed)
+        adapt_results <- ADAPT::adapt(build_OTU_subset, cond.var = "Age_Group")
+        
+        DAtaxa_result <- ADAPT::summary(adapt_results, select="all")
+        
+        # Store results
+        comparison_results$ADAPT <- DAtaxa_result
+        
+        # Save results to file
+        write.table(DAtaxa_result, file=paste0(treatment,"_vs_",other_treatment,"_ADAPT_DE_results.txt"), 
+                    quote=FALSE, sep='\t', col.names=NA)
+        
+        ######## metagenomeSeq ########
+        print("Running metagenomeSeq Analysis...")
+        
+        # Convert phyloseq object to metagenomeSeq MRexperiment format
+        otu_mat <- as(otu_table(build_OTU_counts_output), "matrix")
+        sample_data_df <- as(sample_data(build_OTU_counts_output), "data.frame")
+        
+        # Create a new MRexperiment object
+        pheno_data <- AnnotatedDataFrame(sample_data_df)
+        feature_data <- AnnotatedDataFrame(data.frame(OTU_ID = rownames(otu_mat), row.names = rownames(otu_mat)))
+        meta_obj <- newMRexperiment(otu_mat, phenoData = pheno_data, featureData = feature_data)
+        
+        # Normalize data using cumulative sum scaling (CSS)
+        meta_obj <- cumNorm(meta_obj, p = cumNormStat(meta_obj))
+        
+        # Define model matrix for differential analysis
+        mod <- model.matrix(~ Age_Group, data = pData(pheno_data))
+        
+        # Fit metagenomeSeq model
+        fit_meta <- fitFeatureModel(meta_obj, mod)
+        
+        # Extract results
+        #metagenomeSeq_OTU_DE_results <- MRcoefs(fit_meta)
+        
+        metagenomeSeq_OTU_DE_results <- MRfulltable(fit_meta, number = nrow(otu_mat))
+        
+        # Store results in the comparison list
+        comparison_results$metagenomeSeq <- metagenomeSeq_OTU_DE_results
+        
+        # Save results to file
+        write.table(metagenomeSeq_OTU_DE_results, file=paste0(treatment,"_vs_",other_treatment,"_metagenomeSeq_DE_results.txt"), 
+                    quote=FALSE, sep='\t', col.names=NA)
+        
+        
+        
+        # Fit metagenomeSeq model
+       # fit_meta <- fitFeatureModel(meta_obj, mod)
+        
+        # Extract results
+      #  metagenomeSeq_OTU_DE_results <- MRcoefs(fit_meta)
+        
+      #  metagenomeSeq_OTU_DE_results <- MRfulltable(fit_meta)
+        
+        ##################### DA consolidation ###############
+        
+        
+        OTUs_multi_DA_consolidated <-  consolidate_DA_results( edgeR_res = EdgeR_OTU_DE_results,
+                                                               DESeq2_res = DESeq2_OTU_DE_results,
+                                                               ALDEx2_res = ALDEx2_OTU_DE_results,
+                                                               metagenomeSeq_res = metagenomeSeq_OTU_DE_results,
+                                                               ADAPT_res = DAtaxa_result
+        )
+        
+        print(OTUs_multi_DA_consolidated)
+        
+        #OTUs_multi_DA_consolidated
+        write.table(OTUs_multi_DA_consolidated, file=paste0(treatment,"_vs_",other_treatment,"_ALLDE_results.txt"), quote=F, sep="\t", row.names = FALSE, col.names = TRUE)
+        
+        ############################ Venn Diagram Plots ##################
+        
+        pval_threshold = 0.05
+        
+        significant_results_edgeR <- subset(OTUs_multi_DA_consolidated, padj_edgeR < pval_threshold)
+        significant_results_DESeq2 <- subset(OTUs_multi_DA_consolidated, padj_DESeq2 < pval_threshold)
+        significant_results_ALDEx2 <- subset(OTUs_multi_DA_consolidated, padj_ALDEx2 < pval_threshold)
+        significant_results_ADAPT <- subset(OTUs_multi_DA_consolidated, padj_metaSeq < pval_threshold)
+        significant_results_metagenomeSeq <- subset(OTUs_multi_DA_consolidated, padj_ADAPT < pval_threshold)
+        
+        print(length(significant_results_edgeR$Taxa))
+        print(length(significant_results_DESeq2$Taxa))
+        print(length(significant_results_ALDEx2$Taxa)) 
+        print(length(significant_results_ADAPT$Taxa)) 
+        print(length(significant_results_metagenomeSeq$Taxa)) 
+        
+        edgeR_ids <- significant_results_edgeR$Taxa
+        DESeq2_ids <- significant_results_DESeq2$Taxa
+        ALDEx2_ids <- significant_results_ALDEx2$Taxa
+        ADAPT_ids <- significant_results_ADAPT$Taxa
+        metagenomeSeq_ids <- significant_results_metagenomeSeq$Taxa
+        
+        list_input <- list(edgeR = edgeR_ids, DESeq2 = DESeq2_ids, ALDEx2 = ALDEx2_ids, ADAPT = ADAPT_ids, metagenomeSeq = metagenomeSeq_ids)
+        
+        print(list_input)
+        #treatments <- strsplit(contrast_pair, "_vs_")[[1]]
+        #treatment <- treatments[1]
+        #other_treatment <- treatments[2]
+        
+        venn1_plot <- venn.diagram(
+          x = list_input,
+          category.names = names(list_input),
+          filename = NULL,
+          output = TRUE,
+          fill = c("red", "blue", "green", "yellow", "purple"),
+          alpha = 0.1,
+          cex = 1.5,
+          fontfamily = "serif",
+          fontface = "bold",
+          cat.cex = 1.5,
+          cat.fontface = "bold",
+          margin = 0.2
+        )
+        ggsave(filename = paste0(treatment, "_vs_", other_treatment, "_ProportionalVennDiagram.pdf"), plot = venn1_plot, device = "pdf", height = 10, width = 8)
+        
+        ############################ UpSetR Plots ##################
+        
+        upset_plot <- UpSetR::upset(UpSetR::fromList(list_input),  mainbar.y.label = "Adj. Pvalue DE Genes", main.bar.color = "brown", sets.x.label = "DE Gene Counts", sets.bar.color = "red")
+        pdf(file=paste0(treatment,"_vs_",other_treatment,"_UpSet_plot.pdf"))
+        print(upset_plot)
+        dev.off()
+        
+        
+        #############################
+        
+        all_comparisons_results[[contrast_pair]] <- comparison_results
+        
+      }
+    }
+  }
   
-  ####### scale plots ########
+#  run_and_plot_DE_analysis(build_OTU_counts_output)
+  
+  return(all_comparisons_results)
 
-  tax_glom_physeq_kingdom <- tax_glom(build_OTU_counts_output, taxrank = "Kingdom")
-  tax_glom_physeq_phylum <- tax_glom(build_OTU_counts_output, taxrank = "Phylum")
-  tax_glom_physeq_class <- tax_glom(build_OTU_counts_output, taxrank = "Class")
-  tax_glom_physeq_order <- tax_glom(build_OTU_counts_output, taxrank = "Order")
-  tax_glom_physeq_family <- tax_glom(build_OTU_counts_output, taxrank = "Family")
-  tax_glom_physeq_genus <- tax_glom(build_OTU_counts_output, taxrank = "Genus")
-  tax_glom_physeq_species <- tax_glom(build_OTU_counts_output, taxrank = "Species")
-  
-  
-  build_OTU_counts_output_kingdom_tmp <- transform_sample_counts(tax_glom_physeq_kingdom,function(x) x / sum(x))
-  build_OTU_counts_output_phylum_tmp <- transform_sample_counts(tax_glom_physeq_phylum,function(x) x / sum(x))
-  build_OTU_counts_output_class_tmp <- transform_sample_counts(tax_glom_physeq_class,function(x) x / sum(x))
-  build_OTU_counts_output_order_tmp <- transform_sample_counts(tax_glom_physeq_order,function(x) x / sum(x))
-  build_OTU_counts_output_family_tmp <- transform_sample_counts(tax_glom_physeq_family,function(x) x / sum(x))
-  build_OTU_counts_output_genus_tmp <- transform_sample_counts(tax_glom_physeq_genus,function(x) x / sum(x))
-  build_OTU_counts_output_species_tmp <- transform_sample_counts(tax_glom_physeq_species,function(x) x / sum(x))
-  
-  build_OTU_counts_output_kingdom <- tax_glom(build_OTU_counts_output_kingdom_tmp,taxrank='Kingdom')
-  build_OTU_counts_output_phylum <- tax_glom(build_OTU_counts_output_phylum_tmp,taxrank='Phylum')
-  build_OTU_counts_output_class <- tax_glom(build_OTU_counts_output_class_tmp,taxrank='Class')
-  build_OTU_counts_output_order <- tax_glom(build_OTU_counts_output_order_tmp,taxrank='Order')
-  build_OTU_counts_output_family <- tax_glom(build_OTU_counts_output_family_tmp,taxrank='Family')
-  build_OTU_counts_output_genus <- tax_glom(build_OTU_counts_output_genus_tmp,taxrank='Genus')
-  build_OTU_counts_output_species <- tax_glom(build_OTU_counts_output_species_tmp,taxrank='Species')
-  
-  build_OTU_counts_output_kingdom_data <- psmelt(build_OTU_counts_output_kingdom)
-  build_OTU_counts_output_phylum_data <- psmelt(build_OTU_counts_output_phylum)
-  build_OTU_counts_output_class_data <- psmelt(build_OTU_counts_output_class)
-  build_OTU_counts_output_order_data <- psmelt(build_OTU_counts_output_order)
-  build_OTU_counts_output_family_data <- psmelt(build_OTU_counts_output_family)
-  build_OTU_counts_output_genus_data <- psmelt(build_OTU_counts_output_genus)
-  build_OTU_counts_output_species_data <- psmelt(build_OTU_counts_output_species)
-  
-  build_OTU_counts_output_kingdom_data$Kingdom <-  as.character(build_OTU_counts_output_kingdom_data$Kingdom)
-  build_OTU_counts_output_phylum_data$Phylum <-  as.character(build_OTU_counts_output_phylum_data$Phylum)
-  build_OTU_counts_output_class_data$Class <-  as.character(build_OTU_counts_output_class_data$Class)
-  build_OTU_counts_output_order_data$Order <-  as.character(build_OTU_counts_output_order_data$Order)
-  build_OTU_counts_output_family_data$Family <-  as.character(build_OTU_counts_output_family_data$Family)
-  build_OTU_counts_output_genus_data$Genus <-  as.character(build_OTU_counts_output_genus_data$Genus)
-  build_OTU_counts_output_species_data$Species <-  as.character(build_OTU_counts_output_species_data$Species)
-  
-  build_OTU_counts_output_kingdom_data$Kingdom[build_OTU_counts_output_kingdom_data$Abundance < 0.01] <- "<1%_Abundance"
-  build_OTU_counts_output_phylum_data$Phylum[build_OTU_counts_output_phylum_data$Abundance < 0.01] <- "<1%_Abundance"
-  build_OTU_counts_output_class_data$Class[build_OTU_counts_output_class_data$Abundance < 0.01] <- "<1%_Abundance"
-  build_OTU_counts_output_order_data$Order[build_OTU_counts_output_order_data$Abundance < 0.01] <- "<1%_Abundance"
-  build_OTU_counts_output_family_data$Family[build_OTU_counts_output_family_data$Abundance < 0.01] <- "<1%_Abundance"
-  build_OTU_counts_output_genus_data$Genus[build_OTU_counts_output_genus_data$Abundance < 0.01] <- "<1%_Abundance"
-  build_OTU_counts_output_species_data$Species[build_OTU_counts_output_species_data$Abundance < 0.01] <- "<1%_Abundance"
-  
-  build_OTU_counts_output_kingdom_data[build_OTU_counts_output_kingdom_data == 0] <- NA
-  build_OTU_counts_output_phylum_data[build_OTU_counts_output_phylum_data == 0] <- NA
-  build_OTU_counts_output_class_data[build_OTU_counts_output_class_data == 0] <- NA
-  build_OTU_counts_output_order_data[build_OTU_counts_output_order_data == 0] <- NA
-  build_OTU_counts_output_family_data[build_OTU_counts_output_family_data == 0] <- NA
-  build_OTU_counts_output_genus_data[build_OTU_counts_output_genus_data == 0] <- NA
-  build_OTU_counts_output_species_data[build_OTU_counts_output_species_data == 0] <- NA
-  
-  
-  unique(build_OTU_counts_output_kingdom_data$Kingdom)
-  unique(build_OTU_counts_output_phylum_data$Phylum)
-  unique(build_OTU_counts_output_class_data$Class)
-  unique(build_OTU_counts_output_order_data$Order)
-  unique(build_OTU_counts_output_family_data$Family)
-  unique(build_OTU_counts_output_genus_data$Genus)
-  unique(build_OTU_counts_output_species_data$Species)
-  
-  length(unique(build_OTU_counts_output_kingdom_data$Kingdom))
-  length(unique(build_OTU_counts_output_phylum_data$Phylum))
-  length(unique(build_OTU_counts_output_class_data$Class))
-  length(unique(build_OTU_counts_output_order_data$Order))
-  length(unique(build_OTU_counts_output_family_data$Family))
-  length(unique(build_OTU_counts_output_genus_data$Genus))
-  length(unique(build_OTU_counts_output_species_data$Species))
-  
-  
-  
-  level_kingdom <- unique(build_OTU_counts_output_kingdom_data$Kingdom)
-  level_phylum <- unique(build_OTU_counts_output_phylum_data$Phylum)
-  level_class <- unique(build_OTU_counts_output_class_data$Class)
-  level_order <- unique(build_OTU_counts_output_order_data$Order)
-  level_family <- unique(build_OTU_counts_output_family_data$Family)
-  level_genus <- unique(build_OTU_counts_output_genus_data$Genus)
-  level_species <- unique(build_OTU_counts_output_species_data$Species)
-  
-  #tmp as before
-  build_OTU_counts_output_kingdom_data$Kingdom <- factor(build_OTU_counts_output_kingdom_data$Kingdom, levels = level_kingdom)
-  build_OTU_counts_output_phylum_data$Phylum <- factor(build_OTU_counts_output_phylum_data$Phylum, levels = level_phylum)
-  build_OTU_counts_output_class_data$Class <- factor(build_OTU_counts_output_class_data$Class, levels = level_class)
-  build_OTU_counts_output_order_data$Order <- factor(build_OTU_counts_output_order_data$Order, levels = level_order)
-  build_OTU_counts_output_family_data$Family <- factor(build_OTU_counts_output_family_data$Family, levels = level_family)
-  build_OTU_counts_output_genus_data$Genus <- factor(build_OTU_counts_output_genus_data$Genus, levels = level_genus)
-  build_OTU_counts_output_species_data$Species <- factor(build_OTU_counts_output_species_data$Species, levels = level_species)
-  
-  
-  scale_plot_kingdom <- ggplot(data=build_OTU_counts_output_kingdom_data,aes(x=Sample,y=Abundance,fill=Kingdom)) + facet_grid(~Age_Group,scales="free") + geom_bar(aes(), stat="identity", position="stack") + scale_fill_manual(values = colors_to_use) + theme(  axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-  scale_plot_phylum <- ggplot(data=build_OTU_counts_output_phylum_data,aes(x=Sample,y=Abundance,fill=Phylum)) + facet_grid(~Age_Group,scales="free") + geom_bar(aes(), stat="identity", position="stack") + scale_fill_manual(values = colors_to_use) + theme(  axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-  scale_plot_class <- ggplot(data=build_OTU_counts_output_class_data,aes(x=Sample,y=Abundance,fill=Class)) + facet_grid(~Age_Group,scales="free") + geom_bar(aes(), stat="identity", position="stack") + scale_fill_manual(values = colors_to_use) + theme(  axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-  scale_plot_order <- ggplot(data=build_OTU_counts_output_order_data,aes(x=Sample,y=Abundance,fill=Order)) + facet_grid(~Age_Group,scales="free") + geom_bar(aes(), stat="identity", position="stack") + scale_fill_manual(values = colors_to_use) + theme(  axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-  scale_plot_family <- ggplot(data=build_OTU_counts_output_family_data,aes(x=Sample,y=Abundance,fill=Family)) + facet_grid(~Age_Group,scales="free") + geom_bar(aes(), stat="identity", position="stack") + scale_fill_manual(values = colors_to_use) + theme(  axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-  scale_plot_genus <- ggplot(data=build_OTU_counts_output_genus_data,aes(x=Sample,y=Abundance,fill=Genus)) + facet_grid(~Age_Group,scales="free") + geom_bar(aes(), stat="identity", position="stack") + scale_fill_manual(values = colors_to_use) + theme(  axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-  #scale_plot_species <- ggplot(data=build_OTU_counts_output_species_data,aes(x=Sample,y=Abundance,fill=Species)) + facet_grid(~Age_Group,scales="free") + geom_bar(aes(), stat="identity", position="stack") + scale_fill_manual(values = colors_to_use) + theme( legend.position = "", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-  #scale_plot_species2 <- ggplot(data=build_OTU_counts_output_species_data,aes(x=Sample,y=Abundance,fill=Species)) + facet_grid(~Age_Group,scales="free") + geom_bar(aes(), stat="identity", position="stack") + scale_fill_manual(values = colors_to_use) + theme( legend.position = "bottom", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-  
-  ggsave("scale_plot_kingdom.pdf", plot = scale_plot_kingdom, width = 15, height = 10)
-  ggsave("sscale_plot_phylum.pdf", plot = scale_plot_phylum, width = 15, height = 10)
-  ggsave("scale_plot_class.pdf", plot = scale_plot_class, width = 15, height = 10)
-  ggsave("scale_plot_order.pdf", plot = scale_plot_order, width = 15, height = 10)
-  ggsave("scale_plot_family.pdf", plot = scale_plot_family, width = 15, height = 10)
-  ggsave("scale_plot_genus.pdf", plot = scale_plot_genus, width = 15, height = 10)
-  #ggsave("scale_plot_species.pdf", plot = scale_plot_species, width = 15, height = 10)
-  #ggsave("scale_plot_species2.pdf", plot = scale_plot_species2, width = 15, height = 10)
-  
-  
-  
-  ########## Bidirectional Plot #######
-  
-  bidirectional_plot(build_OTU_counts_output, "Kingdom")
-  bidirectional_plot(build_OTU_counts_output, "Phylum")
-  bidirectional_plot(build_OTU_counts_output, "Class")
-  bidirectional_plot(build_OTU_counts_output, "Order")
-  bidirectional_plot(build_OTU_counts_output, "Family")
-  bidirectional_plot(build_OTU_counts_output, "Genus")
-  bidirectional_plot(build_OTU_counts_output, "Species")
-  
-  
-  ####################
-  
-  OTU_plot_tables <- list(
-    
-    #scale_plot_table <- data_phylo2_class,
-    #AlphaDiv_plot_table <- species_shannon_diversity,
-    #PCoA_table <- pcoa$vectors
-  )
-  
-  
-#  return(OTU_plot_tables)
 }
+
+
