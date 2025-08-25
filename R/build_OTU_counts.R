@@ -207,13 +207,12 @@
 build_OTU_counts <- function(biom = NULL,
                               sample_table = NULL,
                               tax_table_test = NULL,
-                              taxa = NULL,
+                              taxa_level = NULL,
+                              include_taxonomy = TRUE, # Option to include/exclude taxonomy
                               abundance_threshold = NULL,
                               prevalence_threshold = NULL,
                               rarity_threshold = NULL,
                               variance_threshold = NULL,
-                              taxa_level = NULL,
-                              include_taxonomy = TRUE, # Option to include/exclude taxonomy
                               force_build = FALSE,
                               verbose = FALSE){
   
@@ -225,19 +224,22 @@ build_OTU_counts <- function(biom = NULL,
   # Import biom and sample table data
   biom <- import_biom(biom)
   samples <- import_qiime_sample_data(sample_table)
-  tt2_tax_test <- tax_table(tax_table_test)
-
+  
+  # Convert taxonomy if provided
+  if (!is.null(tax_table_test)) {
+    tt2_tax_test <- tax_table(tax_table_test)
+  } else {
+    tt2_tax_test <- NULL
+  }
   
   # Merge into a phyloseq object
-  #phylo <- merge_phyloseq(biom, samples)
-  
-  # Include taxonomy if provided
-  if (include_taxonomy && !is.null(taxa)) {
-    #tax <- import_biom(taxa)
+  if (include_taxonomy && !is.null(tt2_tax_test)) {
     phylo <- merge_phyloseq(biom, samples, tt2_tax_test)
     # Define taxonomy columns
-    tax_col <- c( "Kingdom","Phylum","Class","Order","Family","Genus","Species")
+    tax_col <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
     colnames(tax_table(phylo)) <- tax_col
+  } else {
+    phylo <- merge_phyloseq(biom, samples)
   }
   
   # Filter by taxa level (e.g., Genus, Family)
@@ -250,20 +252,20 @@ build_OTU_counts <- function(biom = NULL,
     phylo <- prune_taxa(taxa_sums(phylo) > abundance_threshold, phylo)
   }
   
-  # Filter by prevalence (percentage of samples an OTU is present in)
+  # Filter by prevalence
   if (!is.null(prevalence_threshold)) {
     prevalence <- apply(otu_table(phylo), 1, function(x) sum(x > 0) / length(x))
     phylo <- prune_taxa(prevalence > prevalence_threshold, phylo)
   }
   
-  # Filter by rarity (low-abundance taxa)
+  # Filter by rarity
   if (!is.null(rarity_threshold)) {
     total_abundance <- taxa_sums(phylo)
     rare_taxa <- names(total_abundance[total_abundance < rarity_threshold])
     phylo <- prune_taxa(!taxa_names(phylo) %in% rare_taxa, phylo)
   }
   
-  # Filter by variance (removes low variance features)
+  # Filter by variance
   if (!is.null(variance_threshold)) {
     var_filter <- apply(otu_table(phylo), 1, var)
     phylo <- prune_taxa(var_filter > variance_threshold, phylo)
