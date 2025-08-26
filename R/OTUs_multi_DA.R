@@ -473,7 +473,6 @@ OTUs_multi_DA <- function(build_OTU_counts_output,
     }
   }
   
-#  run_and_plot_DE_analysis(build_OTU_counts_output)
   
   return(all_comparisons_results)
 
