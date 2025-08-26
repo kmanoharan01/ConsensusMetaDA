@@ -1,5 +1,5 @@
 #'
-#' @title OTU_plots: Multi-level Taxonomic Analysis and Visualization
+#' @title OTUs_plots: Multi-level Taxonomic Analysis and Visualization
 #' 
 #' @description
 #' This function performs comprehensive microbiome analysis and generates multiple
