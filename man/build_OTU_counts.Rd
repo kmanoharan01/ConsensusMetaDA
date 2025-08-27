@@ -189,7 +189,7 @@ ps_basic <- build_OTU_counts(
 # Comprehensive filtering workflow
 ps_filtered <- build_OTU_counts(
   biom = "path/to/otu_table.biom",
-  sample_table = "path/to/sample_metadata.txt", 
+  sample_table = "path/to/sample_metadata.txt",
   taxa = "path/to/taxonomy.biom",
   abundance_threshold = 10,        # Remove OTUs with <10 total reads
   prevalence_threshold = 0.05,     # Keep OTUs in >5\% of samples
@@ -203,7 +203,7 @@ ps_filtered <- build_OTU_counts(
 ps_genus <- build_OTU_counts(
   biom = "path/to/otu_table.biom",
   sample_table = "path/to/sample_metadata.txt",
-  taxa = "path/to/taxonomy.biom", 
+  taxa = "path/to/taxonomy.biom",
   taxa_level = "Genus",
   abundance_threshold = 50,
   prevalence_threshold = 0.1,
