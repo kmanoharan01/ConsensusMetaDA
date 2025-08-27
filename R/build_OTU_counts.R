@@ -204,9 +204,10 @@
 #' @importFrom phyloseq taxa_names ntaxa otu_table sample_data
 #'
 
+
 build_OTU_counts <- function(biom = NULL,
                               sample_table = NULL,
-                              tax_table_test = NULL,
+                              tax_tables = NULL,
                               taxa_level = NULL,
                               include_taxonomy = TRUE, # Option to include/exclude taxonomy
                               abundance_threshold = NULL,
@@ -226,8 +227,8 @@ build_OTU_counts <- function(biom = NULL,
   samples <- import_qiime_sample_data(sample_table)
   
   # Convert taxonomy if provided
-  if (!is.null(tax_table_test)) {
-    tt2_tax_test <- tax_table(tax_table_test)
+  if (!is.null(tax_tables)) {
+    tt2_tax_test <- tax_table(tax_tables)
   } else {
     tt2_tax_test <- NULL
   }
@@ -277,5 +278,4 @@ build_OTU_counts <- function(biom = NULL,
   
   return(phylo)
 }
-
 
