@@ -1,0 +1,263 @@
+
+#' Build and Filter Phyloseq Objects from Microbiome Data
+#'
+#' @title build_OTU_counts: Comprehensive Microbiome Data Import and Preprocessing
+#'
+#' @description
+#' This function imports and processes microbiome count data from BIOM files,
+#' sample metadata, and taxonomy information to create a filtered phyloseq object
+#' ready for downstream analysis. It provides comprehensive filtering options
+#' including abundance-based, prevalence-based, variance-based, and taxonomic-level
+#' filtering to prepare high-quality datasets for differential abundance analysis
+#' and visualization.
+#'
+#' @author Manoharan Kumar <manoharan.kumar@jcu.edu.au>
+#'
+#' @param biom Character string. Path to a BIOM format file containing OTU count
+#'   data. Must be a valid BIOM file readable by phyloseq::import_biom().
+#'   Default: NULL
+#' @param sample_table Character string. Path to a sample metadata file in QIIME
+#'   format containing sample information and grouping variables. Must include
+#'   sample identifiers that match those in the BIOM file. Default: NULL
+#' @param tax_tables Character string. Path to taxa table file containing.
+#'   Required but recommended for taxonomic analysis.
+#'   Default: NULL
+#' @param abundance_threshold Numeric. Minimum total abundance across all samples
+#'   required for an OTU to be retained. OTUs with total abundance below this
+#'   threshold will be removed. Default: NULL (no filtering)
+#' @param prevalence_threshold Numeric. Minimum prevalence (proportion of samples
+#'   containing the OTU) required for retention. Value between 0 and 1.
+#'   Default: NULL (no filtering)
+#' @param rarity_threshold Numeric. Maximum total abundance for an OTU to be
+#'   considered rare and removed. Useful for removing singleton/doubleton OTUs.
+#'   Default: NULL (no filtering)
+#' @param variance_threshold Numeric. Minimum variance across samples required
+#'   for an OTU to be retained. Removes features with low variability.
+#'   Default: NULL (no filtering)
+#' @param taxa_level Character string. Taxonomic level for agglomeration
+#'   (e.g., "Phylum", "Class", "Order", "Family", "Genus", "Species").
+#'   Requires taxonomy information. Default: NULL (no agglomeration)
+#' @param include_taxonomy Logical. Whether to include taxonomy information
+#'   in the final phyloseq object if taxa parameter is provided.
+#'   Default: TRUE
+#' @param force_build Logical. Whether to force rebuilding even if processed
+#'   data exists. Currently not implemented. Default: FALSE
+#' @param verbose Logical. Whether to print progress messages and filtering
+#'   statistics during execution. Default: FALSE
+#'
+#' @return A phyloseq object containing:
+#'   \itemize{
+#'     \item \strong{otu_table}: Filtered OTU count matrix
+#'     \item \strong{sample_data}: Sample metadata and grouping variables
+#'     \item \strong{tax_table}: Taxonomic classifications (if provided)
+#'   }
+#'   The object is ready for downstream analysis including diversity calculations,
+#'   ordination, and differential abundance testing.
+#'
+#' @details
+#' \subsection{Data Import Process:}{
+#'   \enumerate{
+#'     \item Import BIOM file using \code{phyloseq::import_biom()}
+#'     \item Import sample metadata using \code{phyloseq::import_qiime_sample_data()}
+#'     \item Merge count and metadata into phyloseq object
+#'     \item Optionally add taxonomy information
+#'     \item Apply specified filtering criteria in sequence
+#'   }
+#' }
+#'
+#' \subsection{Filtering Strategy:}{
+#'   Filters are applied in the following order:
+#'   \enumerate{
+#'     \item Taxonomic agglomeration (if specified)
+#'     \item Abundance threshold filtering
+#'     \item Prevalence threshold filtering
+#'     \item Rarity threshold filtering
+#'     \item Variance threshold filtering
+#'   }
+#' }
+#'
+#' \subsection{Quality Control Recommendations:}{
+#'   \itemize{
+#'     \item \strong{Abundance filtering}: Remove OTUs with <10 total reads
+#'     \item \strong{Prevalence filtering}: Keep OTUs present in >5% of samples
+#'     \item \strong{Rarity filtering}: Remove singletons/doubletons (threshold = 2)
+#'     \item \strong{Variance filtering}: Remove low-variance features
+#'   }
+#' }
+#'
+#' @section File Format Requirements:
+#' \subsection{BIOM File:}{
+#'   \itemize{
+#'     \item Valid BIOM format (JSON or HDF5)
+#'     \item Contains OTU count matrix
+#'     \item Sample IDs must match metadata file
+#'     \item May include taxonomy information
+#'   }
+#' }
+#' \subsection{Sample Table:}{
+#'   \itemize{
+#'     \item Tab-delimited text file
+#'     \item First column: Sample IDs (matching BIOM file)
+#'     \item Subsequent columns: metadata variables
+#'     \item Must include grouping variables for analysis
+#'   }
+#' }
+#' \subsection{Taxonomy File:}{
+#'   \itemize{
+#'     \item BIOM format or tab-delimited text
+#'     \item OTU IDs must match count data
+#'     \item Standard taxonomic ranks recommended
+#'   }
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Example usage
+#' ps_filtered <- build_OTU_counts(
+#'   biom = "./test_data/otu_table.biom",
+#'   sample_table = "./test_data/sample_metadata.txt",
+#'   taxa_tables = "./test_data/taxonomy.biom",
+#'   abundance_threshold = 10,        # Remove OTUs with <10 total reads
+#'   prevalence_threshold = 0.05,     # Keep OTUs in >5% of samples
+#'   rarity_threshold = 2,            # Remove singletons/doubletons
+#'   variance_threshold = 0.01,       # Remove low-variance OTUs
+#'   include_taxonomy = TRUE,
+#'   verbose = TRUE
+#' )
+#'
+#'
+#' # Check results
+#' print(ps_filtered)
+#' sample_data(ps_filtered)
+#' tax_table(ps_filtered)
+#' }
+#'
+#' @section Data Quality Metrics:
+#' The function can be used to assess data quality:
+#' \itemize{
+#'   \item \strong{Library sizes}: Check \code{sample_sums(phyloseq_object)}
+#'   \item \strong{Feature counts}: Check \code{ntaxa(phyloseq_object)}
+#'   \item \strong{Sparsity}: Assess zeros with \code{sum(otu_table(phyloseq_object) == 0)}
+#'   \item \strong{Taxonomy coverage}: Check \code{sum(!is.na(tax_table(phyloseq_object)))}
+#' }
+#'
+#' @note
+#' \strong{Important Considerations:}
+#' \itemize{
+#'   \item Filtering order matters - abundance before prevalence recommended
+#'   \item Preserve sample IDs exactly as they appear in BIOM files
+#'   \item Taxonomy integration requires matching OTU identifiers
+#'   \item Large datasets may require memory management
+#'   \item Always validate filtering results before downstream analysis
+#' }
+#'
+#' \strong{Performance Notes:}
+#' \itemize{
+#'   \item Processing time scales with dataset size and filtering complexity
+#'   \item Memory usage peaks during file import and merging
+#'   \item Taxonomic agglomeration can significantly reduce feature count
+#' }
+#'
+#' @section Error Handling:
+#' Common errors and solutions:
+#' \itemize{
+#'   \item \strong{Sample ID mismatch}: Ensure BIOM and metadata have identical sample IDs
+#'   \item \strong{Empty phyloseq}: Check if filtering is too stringent
+#'   \item \strong{Missing taxonomy}: Verify taxa file format and OTU ID matching
+#'   \item \strong{File not found}: Use absolute paths or check working directory
+#' }
+#'
+#'
+#' @seealso
+#' \code{\link[phyloseq]{import_biom}} for BIOM file import
+#' \code{\link[phyloseq]{import_qiime_sample_data}} for metadata import
+#' \code{\link[phyloseq]{merge_phyloseq}} for object merging
+#' \code{\link[phyloseq]{tax_glom}} for taxonomic agglomeration
+#' \code{\link{OTUs_plots}} for visualization
+#' \code{\link{OTUs_multi_DA}} for differential abundance analysis
+#'
+#' @keywords microbiome, phyloseq, data-import, preprocessing, filtering
+#'
+#' @export
+#'
+#' @importFrom phyloseq import_biom import_qiime_sample_data merge_phyloseq
+#' @importFrom phyloseq tax_table tax_table<- tax_glom prune_taxa taxa_sums
+#' @importFrom phyloseq taxa_names ntaxa otu_table sample_data
+#'
+
+
+build_OTU_counts <- function(biom = NULL,
+                              sample_table = NULL,
+                              tax_tables = NULL,
+                              taxa_level = NULL,
+                              include_taxonomy = TRUE, # Option to include/exclude taxonomy
+                              abundance_threshold = NULL,
+                              prevalence_threshold = NULL,
+                              rarity_threshold = NULL,
+                              variance_threshold = NULL,
+                              force_build = FALSE,
+                              verbose = FALSE){
+
+  ####///---- Check Inputs ----\\###
+  if(is.null(biom) | is.null(sample_table)) {
+    stop("EITHER a biom or sample_table is not provided. Please provide filenames with full path and rerun.")
+  }
+
+
+  # Import biom and sample table data
+  biom <- import_biom(biom)
+  samples <- import_qiime_sample_data(sample_table)
+
+  # Convert taxonomy if provided
+  if (!is.null(tax_tables)) {
+    tt2_tax_test <- tax_table(tax_tables)
+  } else {
+    tt2_tax_test <- NULL
+  }
+
+  # Merge into a phyloseq object
+  if (include_taxonomy && !is.null(tt2_tax_test)) {
+    phylo <- merge_phyloseq(biom, samples, tt2_tax_test)
+    # Define taxonomy columns
+    tax_col <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
+    colnames(tax_table(phylo)) <- tax_col
+  } else {
+    phylo <- merge_phyloseq(biom, samples)
+  }
+
+  # Filter by taxa level (e.g., Genus, Family)
+  if (!is.null(taxa_level) && !is.null(tax_table(phylo, errorIfNULL = FALSE))) {
+    phylo <- tax_glom(phylo, taxa_level)
+  }
+
+  # Filter by abundance
+  if (!is.null(abundance_threshold)) {
+    phylo <- prune_taxa(taxa_sums(phylo) > abundance_threshold, phylo)
+  }
+
+  # Filter by prevalence
+  if (!is.null(prevalence_threshold)) {
+    prevalence <- apply(otu_table(phylo), 1, function(x) sum(x > 0) / length(x))
+    phylo <- prune_taxa(prevalence > prevalence_threshold, phylo)
+  }
+
+  # Filter by rarity
+  if (!is.null(rarity_threshold)) {
+    total_abundance <- taxa_sums(phylo)
+    rare_taxa <- names(total_abundance[total_abundance < rarity_threshold])
+    phylo <- prune_taxa(!taxa_names(phylo) %in% rare_taxa, phylo)
+  }
+
+  # Filter by variance
+  if (!is.null(variance_threshold)) {
+    var_filter <- apply(otu_table(phylo), 1, var)
+    phylo <- prune_taxa(var_filter > variance_threshold, phylo)
+  }
+
+  if (verbose) {
+    cat("Final OTU count after filtering:", ntaxa(phylo), "\n")
+  }
+
+  return(phylo)
+}
+
