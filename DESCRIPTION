@@ -1,0 +1,42 @@
+Package: ConsensusMetaDA
+Title: ConsensusMetaDA: an R Package for consensus-based differential abundance analysis of metagenomic data
+Version: 1.0.0
+Date: 2025-08-28
+Authors@R: 
+    person("Manoharan", "Kumar", , "manoharan.kumar@jcu.edu.au", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-4828-2505"))
+Description: This package provides a comprehensive suite of tools for microbiome 
+    data analysis including data import, preprocessing, visualization, and 
+    differential abundance analysis. It supports multiple statistical methods 
+    including EdgeR, DESeq2, ALDEx2, ADAPT, and metagenomeSeq for robust 
+    comparative analysis. The package handles BIOM format files and generates 
+    publication-ready plots for taxonomic composition, alpha diversity, 
+    beta diversity, and differential abundance results.
+License: GPL-3 + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends:
+    R (>= 3.5.0)
+Imports:
+    phyloseq,
+    ggplot2,
+    dplyr,
+    Biobase,
+    DESeq2,
+    edgeR,
+    ALDEx2,
+    ADAPT,
+    metagenomeSeq,
+    VennDiagram,
+    magrittr,
+    grid,
+    vegan,
+    stats,
+    UpSetR,
+    scales
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+RoxygenNote: 7.3.2
