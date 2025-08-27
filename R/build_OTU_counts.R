@@ -19,11 +19,8 @@
 #' @param sample_table Character string. Path to a sample metadata file in QIIME
 #'   format containing sample information and grouping variables. Must include
 #'   sample identifiers that match those in the BIOM file. Default: NULL
-#' @param tax_table_test Character string. Path to taxa table file containing.
+#' @param tax_tables Character string. Path to taxa table file containing.
 #'   Required but recommended for taxonomic analysis.
-#'   Default: NULL
-#' @param taxa Character string. Path to a taxonomy file containing
-#'   taxonomic classifications. Optional but recommended for taxonomic analysis.
 #'   Default: NULL
 #' @param abundance_threshold Numeric. Minimum total abundance across all samples
 #'   required for an OTU to be retained. OTUs with total abundance below this
@@ -115,17 +112,11 @@
 #'
 #' @examples
 #' \dontrun{
-#' # Basic usage - import without filtering
-#' ps_basic <- build_OTU_counts(
-#'   biom = "path/to/otu_table.biom",
-#'   sample_table = "path/to/sample_metadata.txt"
-#' )
-#'
-#' # Comprehensive filtering workflow
+#' # Example usage
 #' ps_filtered <- build_OTU_counts(
-#'   biom = "path/to/otu_table.biom",
-#'   sample_table = "path/to/sample_metadata.txt",
-#'   taxa = "path/to/taxonomy.biom",
+#'   biom = "./test_data/otu_table.biom",
+#'   sample_table = "./test_data/sample_metadata.txt",
+#'   taxa_tables = "./test_data/taxonomy.biom",
 #'   abundance_threshold = 10,        # Remove OTUs with <10 total reads
 #'   prevalence_threshold = 0.05,     # Keep OTUs in >5% of samples
 #'   rarity_threshold = 2,            # Remove singletons/doubletons
@@ -134,16 +125,6 @@
 #'   verbose = TRUE
 #' )
 #'
-#' # Genus-level analysis
-#' ps_genus <- build_OTU_counts(
-#'   biom = "path/to/otu_table.biom",
-#'   sample_table = "path/to/sample_metadata.txt",
-#'   taxa = "path/to/taxonomy.biom",
-#'   taxa_level = "Genus",
-#'   abundance_threshold = 50,
-#'   prevalence_threshold = 0.1,
-#'   verbose = TRUE
-#' )
 #'
 #' # Check results
 #' print(ps_filtered)
@@ -192,7 +173,7 @@
 #' \code{\link[phyloseq]{import_qiime_sample_data}} for metadata import
 #' \code{\link[phyloseq]{merge_phyloseq}} for object merging
 #' \code{\link[phyloseq]{tax_glom}} for taxonomic agglomeration
-#' \code{\link{OTU_plots}} for visualization
+#' \code{\link{OTUs_plots}} for visualization
 #' \code{\link{OTUs_multi_DA}} for differential abundance analysis
 #'
 #' @keywords microbiome, phyloseq, data-import, preprocessing, filtering
@@ -216,23 +197,24 @@ build_OTU_counts <- function(biom = NULL,
                               variance_threshold = NULL,
                               force_build = FALSE,
                               verbose = FALSE){
-  
+
   ####///---- Check Inputs ----\\###
   if(is.null(biom) | is.null(sample_table)) {
     stop("EITHER a biom or sample_table is not provided. Please provide filenames with full path and rerun.")
   }
-  
+
+
   # Import biom and sample table data
   biom <- import_biom(biom)
   samples <- import_qiime_sample_data(sample_table)
-  
+
   # Convert taxonomy if provided
   if (!is.null(tax_tables)) {
     tt2_tax_test <- tax_table(tax_tables)
   } else {
     tt2_tax_test <- NULL
   }
-  
+
   # Merge into a phyloseq object
   if (include_taxonomy && !is.null(tt2_tax_test)) {
     phylo <- merge_phyloseq(biom, samples, tt2_tax_test)
@@ -242,40 +224,40 @@ build_OTU_counts <- function(biom = NULL,
   } else {
     phylo <- merge_phyloseq(biom, samples)
   }
-  
+
   # Filter by taxa level (e.g., Genus, Family)
   if (!is.null(taxa_level) && !is.null(tax_table(phylo, errorIfNULL = FALSE))) {
     phylo <- tax_glom(phylo, taxa_level)
   }
-  
+
   # Filter by abundance
   if (!is.null(abundance_threshold)) {
     phylo <- prune_taxa(taxa_sums(phylo) > abundance_threshold, phylo)
   }
-  
+
   # Filter by prevalence
   if (!is.null(prevalence_threshold)) {
     prevalence <- apply(otu_table(phylo), 1, function(x) sum(x > 0) / length(x))
     phylo <- prune_taxa(prevalence > prevalence_threshold, phylo)
   }
-  
+
   # Filter by rarity
   if (!is.null(rarity_threshold)) {
     total_abundance <- taxa_sums(phylo)
     rare_taxa <- names(total_abundance[total_abundance < rarity_threshold])
     phylo <- prune_taxa(!taxa_names(phylo) %in% rare_taxa, phylo)
   }
-  
+
   # Filter by variance
   if (!is.null(variance_threshold)) {
     var_filter <- apply(otu_table(phylo), 1, var)
     phylo <- prune_taxa(var_filter > variance_threshold, phylo)
   }
-  
+
   if (verbose) {
     cat("Final OTU count after filtering:", ntaxa(phylo), "\n")
   }
-  
+
   return(phylo)
 }
 
