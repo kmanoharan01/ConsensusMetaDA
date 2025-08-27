@@ -40,7 +40,12 @@
 #'
 #' @keywords microbiome, OTU, phyloseq, visualization, taxonomy
 #'
-#' @importFrom grDevices dev.new dev.off pdf
+#' @importFrom phyloseq tax_glom transform_sample_counts psmelt ordinate plot_ordination estimate_richness plot_richness otu_table sample_data
+#' @importFrom dplyr filter group_by summarize ungroup sym
+#' @importFrom ggplot2 ggplot geom_bar coord_flip labs scale_y_continuous scale_fill_manual theme_minimal theme ggsave scale_color_manual theme_bw element_blank element_line guides guide_legend ggtitle element_text facet_grid
+#' @importFrom scales pretty_breaks
+#' @importFrom vegan specnumber rarefy rarecurve
+#' @importFrom grDevices dev.new dev.off pdf recordPlot
 #' @importFrom graphics abline
 #' @importFrom stats reorder sd setNames var
 #'
@@ -197,22 +202,30 @@ OTUs_plots <- function( build_OTU_counts_output = NULL,
   # Perform rarefaction
   Srare <- rarefy(Data_t, raremax)
 
-  OTU_plot_list$rarefaction <- plot(S, Srare, xlab = "Observed No. of Species", ylab = "Rarefied No. of Species")
+  # OTU_plot_list$rarefaction <- plot(S, Srare, xlab = "Observed No. of Species", ylab = "Rarefied No. of Species")
+  #
+  # OTU_plot_list
+  #   # Plot observed vs. rarefied species
+  # pdf("Rarefaction_curve.pdf")
+  # plot(S, Srare, xlab = "Observed No. of Species", ylab = "Rarefied No. of Species")
+  #
+  # abline(0, 1)
+  #
+  # # Generate rarefaction curves
+  # #rarecurve(Data_t, step = 1, sample = raremax, col = "blue", cex = 0.4)
+  # dev.off()
 
-  OTU_plot_list
-    # Plot observed vs. rarefied species
   pdf("Rarefaction_curve.pdf")
   plot(S, Srare, xlab = "Observed No. of Species", ylab = "Rarefied No. of Species")
-
   abline(0, 1)
-
-  # Generate rarefaction curves
-  #rarecurve(Data_t, step = 1, sample = raremax, col = "blue", cex = 0.4)
+  rarecurve(Data_t, step = 1, sample = raremax, col = "blue", cex = 0.4)
+  rarefaction_plot <- recordPlot()
   dev.off()
 
+  # Store the plot
+  OTU_plot_list$rarefaction <- rarefaction_plot
 
   ####### PCoA / MDS #########
-
 
   pcoa <- ordinate(build_OTU_counts_output,"PCoA")
 
@@ -258,7 +271,7 @@ OTUs_plots <- function( build_OTU_counts_output = NULL,
       theme(  axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
     # Print the plot
-    OTU_plot_list$AlphaDiv$tax_level <-  richness_plot
+    OTU_plot_list$AlphaDiv[[tax_level]] <-  richness_plot
 
     ggsave(paste0("Age_Group_alpha_Diversity_plot_shannon_",tax_level,".pdf"), plot = richness_plot, width = 8, height = 6)
 
