@@ -29,7 +29,7 @@
 #' @note
 #' This function expects:
 #' \itemize{
-#'   \item Sample metadata must contain 'Age_Group' column with groups 'SKM' and 'SKB'
+#'   \item Sample metadata must contain 'Age_Group' column with groups
 #'   \item Taxonomy table must contain standard ranks: Kingdom, Phylum, Class, Order, Family, Genus, Species
 #'   \item Working directory must be writable for output files
 #' }
