@@ -84,6 +84,11 @@ OTUs_plots <- function( build_OTU_counts_output = NULL,
   # Use the first 200 colors for your plot
   colors_to_use <- all_colors[1:200]
   
+  all_comparisons_results <- list()
+  
+  contrast_list <- list()
+  
+  OTU_plot_list <- list()
   
   ##################### bidirectional plot ########
   
@@ -188,13 +193,17 @@ OTUs_plots <- function( build_OTU_counts_output = NULL,
   # Perform rarefaction
   Srare <- rarefy(Data_t, raremax)
   
-  # Plot observed vs. rarefied species
+  OTU_plot_list$rarefaction <- plot(S, Srare, xlab = "Observed No. of Species", ylab = "Rarefied No. of Species")
+  
+  OTU_plot_list
+    # Plot observed vs. rarefied species
   pdf("Rarefaction_curve.pdf")
   plot(S, Srare, xlab = "Observed No. of Species", ylab = "Rarefied No. of Species")
+
   abline(0, 1)
   
   # Generate rarefaction curves
-  rarecurve(Data_t, step = 1, sample = raremax, col = "blue", cex = 0.4)
+  #rarecurve(Data_t, step = 1, sample = raremax, col = "blue", cex = 0.4)
   dev.off()
   
   
@@ -210,6 +219,8 @@ OTUs_plots <- function( build_OTU_counts_output = NULL,
     guides(colour=guide_legend(override.aes=list(size=5)))  + 
     scale_color_manual(values = c("royalblue4", "deepskyblue", "blue","cyan2", "darkorchid","gold1", "forestgreen", "firebrick", "mediumspringgreen", "darkorange1", "deeppink","grey","slategray2", "dodgerblue", "orange2", "maroon","navy"))
   
+  OTU_plot_list$BetaDiv <-  pcoa_plot2
+
   ggsave("Both_groups_mds_plot.pdf", plot = pcoa_plot2, width = 8, height = 6)
   
   
@@ -243,13 +254,13 @@ OTUs_plots <- function( build_OTU_counts_output = NULL,
       theme(  axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
     
     # Print the plot
-    print(richness_plot)
+    OTU_plot_list$AlphaDiv$tax_level <-  richness_plot
     
     ggsave(paste0("Age_Group_alpha_Diversity_plot_shannon_",tax_level,".pdf"), plot = richness_plot, width = 8, height = 6)
     
   }
   
-
+  
   
   ####### scale plots ########
 
@@ -365,7 +376,7 @@ OTUs_plots <- function( build_OTU_counts_output = NULL,
   #ggsave("scale_plot_species.pdf", plot = scale_plot_species, width = 15, height = 10)
   #ggsave("scale_plot_species2.pdf", plot = scale_plot_species2, width = 15, height = 10)
   
-  
+  OTU_plot_list$scale_plot_genus <-  scale_plot_genus
   
   ########## Bidirectional Plot #######
   
@@ -407,6 +418,7 @@ OTUs_plots <- function( build_OTU_counts_output = NULL,
         for (tax_level in taxonomic_levels) {
           try({
             plot_result <- bidirectional_plot(build_OTU_counts_output, tax_level, treatment, other_treatment)
+            
             # Optionally store the plot result
             comparison_results[[paste0(tax_level, "_plot")]] <- plot_result
           }, silent = FALSE)
@@ -420,7 +432,7 @@ OTUs_plots <- function( build_OTU_counts_output = NULL,
     }
   }
   
-  
+  OTU_plot_list$all_comparisons_results <- all_comparisons_results
   
   ####################
   
@@ -432,11 +444,5 @@ OTUs_plots <- function( build_OTU_counts_output = NULL,
   )
   
   
-#  return(OTU_plot_tables)
+  return(OTU_plot_list)
 }
-
-
-
-
-
-
