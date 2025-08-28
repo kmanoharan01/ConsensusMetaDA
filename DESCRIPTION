@@ -14,7 +14,6 @@ Description: This package provides a comprehensive suite of tools for microbiome
     beta diversity, and differential abundance results.
 License: GPL-3 + file LICENSE
 Encoding: UTF-8
-LazyData: true
 Depends:
     R (>= 3.5.0)
 Imports:
