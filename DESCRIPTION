@@ -13,6 +13,7 @@ Description: This package provides a comprehensive suite of tools for microbiome
     publication-ready plots for taxonomic composition, alpha diversity, 
     beta diversity, and differential abundance results.
 License: GPL-3 + file LICENSE
+LazyData: true
 Encoding: UTF-8
 Depends:
     R (>= 3.5.0)
