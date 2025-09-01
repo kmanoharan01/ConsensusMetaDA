@@ -246,7 +246,6 @@ ecc_saliva_DA <- OTUs_multi_DA(ecc_saliva_build_OTU_counts)
 Running ```OTUs_multi_DA()``` will perform DA analysis on all possible pairs of "groups" and save these results as a simple list of "merged" - being the merged results of "DESeq2", "metagenomeSeq", "edgeR", "ALDEx2" and "ADAPT" into one table, as well as the latter five as objects independently. The data frame is sorted by the ```rank_sum```. The following columns are included:
 
 * ```ID``` - Identifier
-* ```AveExpr``` - Average Expression (average of edgeR, DESeq2, ALDEx2, MetagenomeSeq and ADAPT)
 * ```LogFC``` - Log2 Fold-Change, also known as a log-ratio (average of edgeR, DESeq2, ALDEx2, MetagenomeSeq and ADAPT)
 * ```LogFC_sd``` - Log2 Fold-Change standard deviation of LogFC (average) 
 * ```edger_adj_p``` - EdgeR p-value adjusted for multiple hypotheses
@@ -254,11 +253,6 @@ Running ```OTUs_multi_DA()``` will perform DA analysis on all possible pairs of 
 * ```ALDEx2_adj_p``` - ALDEx2 p-value adjusted for multiple hypotheses
 * ```MetagenomeSeq_adj_p``` - MetagenomeSeq p-value adjusted for multiple hypotheses
 * ```ADAPT_adj_p``` - ADAPT p-value adjusted for multiple hypotheses
-* ```edger_rank``` - rank of the p-value obtained by EdgeR 
-* ```deseq_rank``` - rank of the p-value obtained by DESeq2 
-* ```ALDEx2_rank``` - rank of the p-value obtained by ALDEx2
-* ```MetagenomeSeq_rank``` - rank of the p-value obtained by MetagenomeSeq
-* ```ADAPT_rank``` - rank of the p-value obtained by ADAPT
 * ```rank_sum``` - sum of the ranks from edgeR_rank, DESeq2_rank, edgeR, DESeq2, ALDEx2, MetagenomeSeq, ADAPT and rank_sum
 * ```p_intersect``` - the largest p-value observed from all methods tested. // Empirical Benjamini-Hochberg (BH) adjusted p-value for the between group.
     * This represents the intersect when a threshold is set on the p_intersect column
