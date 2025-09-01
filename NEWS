@@ -1,0 +1,5 @@
+Changes in version 1.0.0 (2024-11-12)
++ Five tool package ALDEx2, DESeq2, edgeR, metagenomeSeq and ADAPT with addional filtering and five different visualization plots
+
+Changes in version 0.99.0 (2024-11-12)
++ Three tool package ALDEx2, DESeq2 and edgeR
