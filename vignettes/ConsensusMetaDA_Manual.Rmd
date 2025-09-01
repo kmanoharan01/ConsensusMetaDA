@@ -81,7 +81,7 @@ library(ConsensusMetaDA)
 
 # ConsensusMetaDA examples
 
-To illustrate functionality of ```ConsensusMetaDA```, we will utilise microbiome biom format data from the ```GWMC_HOT_COLD``` and annotation libraries as follows. Begin by installing and attaching data from these libraries as follows:
+To illustrate functionality of ```ConsensusMetaDA```, we will utilise microbiome biom format data from the ```ecc_saliva``` and annotation libraries as follows. Begin by installing and attaching data from these libraries as follows:
 
 
 
