@@ -1,0 +1,324 @@
+---
+title: 'ConsensusMetaDA: an R Package for consensus-based differential abundance analysis of metagenomic data.'
+author: "Manoharan Kumar, Matt Field"
+date: 'Last modified: 2026-09-01. Compiled: `r Sys.Date()`'
+output:
+  html_document:
+    highlight: tango
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    toc_depth: '3'
+vignette: >
+  %\VignetteIndexEntry{ConsensusMetaDA}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Introduction to ConsensusMetaDA
+
+ConsensusMetaDA is an R package for microbiome differential abundance (DA)
+analysis using multiple algorithms and reaching a consensus. No single tool
+performs best on all metagenomic datasets, so a consensus approach yields more
+robust differentially abundant taxa. ConsensusMetaDA runs **seven** widely used
+tools — edgeR, DESeq2, ALDEx2, metagenomeSeq, ADAPT, ANCOM-BC2, and MaAsLin3 —
+takes standard biom + sample table input, and also produces microbiome
+visualisations (alpha diversity, beta diversity, rarefaction, bidirectional and
+scaled plots).
+
+Consensus is reached three ways: vote rules (union / k-of-7 / intersect),
+p-value combination (Fisher, Stouffer, and the dependence-robust Cauchy/ACAT),
+and rank-sum aggregation.
+
+ConsensusMetaDA is organised around two core functions:
+
+* ```build_OTU_counts()``` — build (or filter) a phyloseq object from a biom
+  file + sample table (+ optional taxonomy), or from an existing phyloseq object.
+* ```OTUs_multi_DA()``` — perform DA analysis across all pairwise comparisons.
+
+Plotting is provided by ```OTUs_plots()```.
+
+```{r install, eval=FALSE}
+# ADAPT requires R >= 4.4 (use R 4.4.2)
+# if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+# for (pkg in c("phyloseq","DESeq2","ALDEx2","edgeR","metagenomeSeq","ANCOMBC"))
+#   if (!require(pkg, character.only = TRUE)) BiocManager::install(pkg)
+# # ADAPT, maaslin3 as per their install instructions
+# if (!require("ConsensusMetaDA", quietly = TRUE)) {
+#   if (!require("remotes", quietly = TRUE)) install.packages("remotes")
+#   remotes::install_github("kmanoharan01/ConsensusMetaDA")
+# }
+```
+
+## Load libraries
+
+```{r libraries}
+library(ggplot2)
+library(phyloseq)
+library(vegan)
+library(ConsensusMetaDA)
+```
+
+# Example data
+
+We use the bundled `ecc_saliva` dataset (early-childhood-caries saliva
+microbiome). It is available both as example files under `inst/extdata/` and as
+a ready-made phyloseq object via `data()`.
+
+```{r data}
+library(ADAPT)
+data("ecc_saliva")
+ecc_saliva
+
+# resolve bundled example files (works regardless of working directory)
+ecc_saliva_biom         <- system.file("extdata", "ecc_saliva_Otu.biom",
+                                        package = "ConsensusMetaDA")
+ecc_saliva_sample_table <- system.file("extdata", "ecc_saliva_sample_table.txt",
+                                        package = "ConsensusMetaDA")
+
+# taxonomy taken from the bundled object so it matches the biom's ASV ids
+ecc_saliva_tax <- tax_table(ecc_saliva)
+```
+
+# Building a phyloseq object
+
+`build_OTU_counts()` has two entry points and optional filters
+(`abundance_threshold`, `prevalence_threshold`, `rarity_threshold`,
+`variance_threshold`). **Because the first argument is now `physeq`, always call
+it with named arguments.**
+
+## From files (biom + sample table + taxonomy)
+
+```{r build-files}
+ecc_saliva_build_OTU_counts <- build_OTU_counts(
+  biom                 = ecc_saliva_biom,
+  sample_table         = ecc_saliva_sample_table,
+  tax_tables           = ecc_saliva_tax,
+  abundance_threshold  = 10,
+  prevalence_threshold = 0.1,
+  rarity_threshold     = 0,
+  variance_threshold   = 0
+)
+ecc_saliva_build_OTU_counts
+```
+
+## From a prebuilt phyloseq object
+
+When you already have a phyloseq object, pass it via `physeq =` and use the
+function purely for filtering. This is orientation-safe (it transposes
+internally when taxa are stored as columns).
+
+```{r build-physeq}
+ecc_ps <- build_OTU_counts(physeq = ecc_saliva, prevalence_threshold = 0.1)
+ecc_ps
+```
+
+## Individual filters
+
+Each filter can be used on its own.
+
+```{r filter-rarity}
+build_OTU_counts(biom = ecc_saliva_biom, sample_table = ecc_saliva_sample_table,
+                 tax_tables = ecc_saliva_tax, rarity_threshold = 0.1)
+```
+
+```{r filter-abundance}
+build_OTU_counts(biom = ecc_saliva_biom, sample_table = ecc_saliva_sample_table,
+                 tax_tables = ecc_saliva_tax, abundance_threshold = 10)
+```
+
+```{r filter-prevalence}
+build_OTU_counts(biom = ecc_saliva_biom, sample_table = ecc_saliva_sample_table,
+                 tax_tables = ecc_saliva_tax, prevalence_threshold = 0.1)
+```
+
+```{r filter-variance}
+build_OTU_counts(biom = ecc_saliva_biom, sample_table = ecc_saliva_sample_table,
+                 tax_tables = ecc_saliva_tax, variance_threshold = 0.2)
+```
+
+# Performing differential abundance
+
+`OTUs_multi_DA()` runs the seven tools on every pairwise comparison of the
+grouping variable (default `group_var = "Group"`) and consolidates the results.
+An UpSet plot is written per comparison.
+
+```{r da}
+ecc_saliva_DA <- OTUs_multi_DA(ecc_saliva_build_OTU_counts,
+                               group_var = "Group", fdr_cut = 0.05)
+
+names(ecc_saliva_DA)                     # the contrasts that were run
+cons <- ecc_saliva_DA[[1]]$consolidated  # consolidated table for first contrast
+```
+
+## The consolidated table
+
+For each taxon the consolidated table carries, per tool, a log fold-change,
+p-value, adjusted p-value and significance flag, plus:
+
+* ```n_sig``` — how many of the seven tools called the taxon significant
+* ```n_tools``` — how many tools ran
+* **combined p-values** (appended automatically):
+    * ```p_fisher```, ```padj_fisher```, ```sig_fisher```
+    * ```p_stouffer```, ```padj_stouffer```, ```sig_stouffer```
+    * ```p_cauchy```, ```padj_cauchy```, ```sig_cauchy```
+
+Because the seven tools share the same count matrix and overlapping models
+(i.e. their p-values are correlated), the **Cauchy (ACAT)** combiner is
+recommended — it is valid under arbitrary dependence. Fisher and Stouffer assume
+independence and are provided as comparators.
+
+```{r combined-cols}
+grep("fisher|stouffer|cauchy", names(cons), value = TRUE)
+```
+
+There is deliberately **no composite fold-change column**: the tools report
+fold-change on different footings (ALDEx2's `effect` is a standardized effect
+size, not a log2 fold-change; ANCOM-BC2 / MaAsLin3 / metaSeq each carry their
+own normalization), so averaging them would mix different quantities. Read each
+tool's `logFC_<tool>` column directly if needed.
+
+## Consensus decision rules
+
+`compare_decision_rules()` puts every strategy side by side — vote rules, the
+three combiners, and rank-sum aggregation.
+
+```{r decision-rules}
+compare_decision_rules(cons, fdr_cut = 0.05)
+```
+
+## Compact summary table
+
+`build_summary_table()` gives per-tool adjusted p-values and ranks, the
+rank-sum, and the order-statistic p-values `p_union` / `p_atleast2` /
+`p_intersect_all`. Threshold `p_union` for the union, `p_intersect_all` for the
+intersect, and use `p_atleast_k()` for any *k*.
+
+```{r summary-table}
+st <- build_summary_table(cons)
+st$p_atleast5 <- p_atleast_k(st, k = 5)   # "at least 5 of 7 tools" p-value
+head(st)
+
+describe_summary_table()                  # column dictionary
+```
+
+The summary-table columns are:
+
+* ```<tool>_adj_p``` — BH-adjusted p-value from each tool
+* ```<tool>_rank``` — rank of that tool's p-value (smallest = most significant)
+* ```rank_sum``` — sum of the per-tool ranks (table is sorted by this)
+* ```p_union``` — smallest adjusted p-value across tools (threshold → union)
+* ```p_atleast2``` — 2nd-smallest (threshold → "≥2 tools"); `p_atleast_k()` for other k
+* ```p_intersect_all``` — largest adjusted p-value (threshold → intersect)
+
+# Plotting functions
+
+`OTUs_plots()` creates five plots — (1) alpha diversity (Shannon), (2) beta
+diversity (PCoA), (3) rarefaction curve, (4) scaled taxa-level plot and
+(5) bidirectional plots — and saves them as PDFs. It also returns them as
+objects for inline display. See `?OTUs_plots`.
+
+```{r plots-run}
+ecc_saliva_plots <- OTUs_plots(ecc_saliva_build_OTU_counts)
+```
+
+## Rarefaction curve
+
+A rarefaction curve shows how many species you detect as sequencing depth
+increases, allowing fair comparison of diversity across samples sequenced to
+different depths.
+
+## Alpha diversity
+
+Alpha diversity (Shannon index) measures within-sample richness and evenness.
+
+```{r plot-alpha}
+print(ecc_saliva_plots$AlphaDiv$tax_level)
+```
+
+## Beta diversity / PCoA
+
+Beta diversity (principal coordinates analysis) shows how microbiome composition
+differs among groups and samples.
+
+```{r plot-beta}
+print(ecc_saliva_plots$BetaDiv)
+```
+
+## Bidirectional plot
+
+A bidirectional plot shows two groups' mean abundance and prevalence together,
+richer than either alone.
+
+```{r plot-bidirectional}
+print(ecc_saliva_plots$all_comparisons_results$Control_vs_Case$Genus_plot)
+```
+
+Interpretation:
+
+* High abundance + high prevalence — beneficial bacteria expanding
+* Higher abundance + lower prevalence — pathogen blooming in some individuals
+* Lower abundance + higher prevalence — opportunists colonising stressed communities
+* Lower abundance + lower prevalence — sensitive bacteria dying off
+
+# Citing ConsensusMetaDA
+
+When using this package, please cite ConsensusMetaDA and every method used.
+
+```{r citation, eval=FALSE}
+citation("ConsensusMetaDA")
+```
+
+**DA tools**
+
+* **DESeq2** — Love, M.I., Huber, W., Anders, S. (2014). Moderated estimation of
+  fold change and dispersion for RNA-seq data with DESeq2. *Genome Biology*
+  15(12):550.
+* **edgeR** — Robinson MD, McCarthy DJ, Smyth GK (2010). *Bioinformatics* 26,
+  139–140. McCarthy DJ, Chen Y, Smyth GK (2012). *Nucleic Acids Research* 40,
+  4288–4297.
+* **ALDEx2** — Fernandes, A.D. et al. (2013). ANOVA-Like Differential Expression
+  (ALDEx) Analysis for Mixed Population RNA-Seq. *PLOS ONE* 8(7), e67019.
+* **ADAPT** — Wang, M., Fontaine, S., Jiang, H., Li, G. (2024). ADAPT: Analysis
+  of Microbiome Differential Abundance by Pooling Tobit Models. *Bioinformatics*
+  40(11).
+* **metagenomeSeq** — Paulson JN, Stine OC, Bravo HC, Pop M (2013). Differential
+  abundance analysis for microbial marker-gene surveys. *Nature Methods* 10,
+  1200–1202.
+* **ANCOM-BC2** — Lin, H., Peddada, S.D. (2020). Analysis of compositions of
+  microbiomes with bias correction. *Nature Communications* 11, 3514.
+* **MaAsLin** — Mallick, H. et al. (2021). Multivariable association discovery in
+  population-scale meta-omics studies. *PLoS Computational Biology* 17(11),
+  e1009442.
+
+**Consensus / combination methods**
+
+* **Cauchy combination (recommended)** — Liu, Y., Xie, J. (2020). Cauchy
+  combination test: a powerful test with analytic p-value calculation under
+  arbitrary dependency structures. *JASA* 115(529), 393–402.
+* **ACAT** — Liu, Y. et al. (2019). ACAT: a fast and powerful p-value combination
+  method for rare-variant analysis. *AJHG* 104(3), 410–421.
+* **Fisher's method** — Fisher, R.A. (1932). *Statistical Methods for Research
+  Workers*, 4th ed. Oliver and Boyd.
+* **Stouffer's Z** — Stouffer, S.A. et al. (1949). *The American Soldier, Vol. 1*.
+  Princeton University Press.
+* **Rank aggregation** — Guo, Zhao, Ye, Sheng, Shyr (2014).
+
+**Framework**
+
+* **phyloseq** — McMurdie, P.J., Holmes, S. (2013). phyloseq: an R package for
+  reproducible interactive analysis and graphics of microbiome census data.
+  *PLOS ONE* 8(4), e61217.
+```
