@@ -1,0 +1,17 @@
+citHeader("To cite ConsensusMetaDA in publications use:")
+
+citEntry(
+  entry    = "Manual",
+  title    = "ConsensusMetaDA: R package for microbiome analysis using multiple algorithms",
+  author   = c(person("Manoharan", "Kumar"), 
+               person("Matt", "Field")),
+  year     = "2025",
+  note     = "R package version 1.0.0",
+  url      = "https://github.com/kmanoharan01/ConsensusMetaDA",
+  textVersion = paste(
+    "Kumar, M. and Field, M. (2025).",
+    "ConsensusMetaDA: R package for microbiome analysis using multiple algorithms.",
+    "R package version 1.0.0.",
+    "https://github.com/kmanoharan01/ConsensusMetaDA"
+  )
+)

@@ -1,8 +1,16 @@
+<<<<<<< HEAD
 # ConsensusMetaDAv2
 
 ConsensusMetaDAv2 is an R package for microbiome analysis using multiple algorithms - reaching consensus. No one tool perform best DA anlayes on metaganome data. Hence it needs a consensus approach to obtain more robust differential abundant microbiome. ConsensusMetaDAv2 helps achieve this using seven popularly used tools. ConsensusMetaDAv2 uses popular biom format and samples table as input to perform DA along with it generates standard microbiome visualisation plots such as Alpha Diversity, Beta Diversity, Rarefaction curve, Bidirectional plot and Scale plot at various taxa levels.
 
 ## Installing consensusMetaDA
+=======
+# MetaConsensusDA
+
+MetaConsensusDA is an R package for microbiome analysis using multiple algorithms - reaching consensus.
+
+## Installing consensusDE
+>>>>>>> 607f1395a6b8ac6e05d05f9b109242799ee0851a
 
 To obtain the original version from github, install devtools in R and use the following:
 
@@ -10,6 +18,7 @@ To obtain the original version from github, install devtools in R and use the fo
 
 required packages
 
+<<<<<<< HEAD
 # ADAPT R package requires R version 4.4 hence need all R updated to R v4.4.2
 
 # One line per package
@@ -30,6 +39,19 @@ required packages
 #   remotes::install_github("FieldLabFNQOmics/ConsensusMetaDAv2")
 # }
 
+=======
+# Install ggplot2 
+install.packages("ggplot2")
+
+# Install Bioconductor packages
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("phyloseq")
+BiocManager::install("DESeq2")
+BiocManager::install("ALDEx2")
+BiocManager::install("edgeR")
+>>>>>>> 607f1395a6b8ac6e05d05f9b109242799ee0851a
 
 # Load the packages
 library(ggplot2)
@@ -37,6 +59,7 @@ library(phyloseq)
 library(DESeq2)
 library(ALDEx2)
 library(edgeR)
+<<<<<<< HEAD
 library(metagenomeSeq)
 library(ADAPT)
 library(maaslin3)
@@ -95,9 +118,24 @@ Creates Five different plots and saves them as pdf files. (1) Alpha diversity - 
 
 ecc_saliva_plots <- OTUs_plots(ecc_saliva_build_OTU_counts)
 
+=======
+
+```
+
+## Examples
+
+To run consensusDE, load the library and follow the examples in the vignette.
+
+```R
+library(MetaConsensusDA)
+>>>>>>> 607f1395a6b8ac6e05d05f9b109242799ee0851a
 ```
 
 ## Contact
 
 For more details, contact Manoharan Kumar:
 manoharan.kumar@jcu.edu.au
+<<<<<<< HEAD
+=======
+# MetaConsensusDA
+>>>>>>> 607f1395a6b8ac6e05d05f9b109242799ee0851a
